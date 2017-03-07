@@ -23,6 +23,26 @@ void error(char *msg) {
   exit(1);
 }
 
+// Helpful when retrieving commands from client
+// with newlines and when we want to remove them
+void replaceNewlineWithTerminator(char *buf) {
+  if(buf[strlen(buf) - 1] == '\n')
+  {
+          buf[strlen(buf) - 1] = '\0';
+  }
+}
+
+void printBufHex(char *buf) {
+  int i;
+  int x = strlen(buf);
+  for (i = 0; i < x; i++)
+  {
+    if (i > 0) printf(":");
+      printf("%02X", buf[i]);
+  }
+  printf("\n");
+}
+
 int main(int argc, char **argv) {
   int sockfd; /* socket */
   int portno; /* port to listen on */
@@ -34,6 +54,7 @@ int main(int argc, char **argv) {
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
+  FILE * file;
 
   /* 
    * check command line arguments 
@@ -104,10 +125,29 @@ int main(int argc, char **argv) {
 	   hostp->h_name, hostaddrp);
     printf("server received %d/%d bytes: %s\n", strlen(buf), n, buf);
     
+    char responseBuf[BUFSIZE];
+
+    // Attempt to open requested file in buf
+    replaceNewlineWithTerminator(buf);
+    file = fopen(buf, "r");
+    
+    // Check if file resides on system
+    if (file)
+    {
+        sprintf(responseBuf, "Awesome! We found file "%s" on our system.\n", buf);
+        fclose(file);
+    }
+    else 
+    {
+        sprintf(responseBuf, "Sorry, could not find file "%s" on our system.\n", buf);
+    }
+    
+    printf("RESPONSEBUF IS: %s\n", responseBuf);
+
     /* 
      * sendto: echo the input back to the client 
      */
-    n = sendto(sockfd, buf, strlen(buf), 0, 
+    n = sendto(sockfd, responseBuf, strlen(responseBuf), 0, 
 	       (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");
