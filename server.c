@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+ 
 #define BUFSIZE 1024
 
 /*
@@ -66,7 +66,7 @@ char * serialize_int32(char *buffer, uint32_t value)
   return buffer + 4;
 }
 
-char * serialize_int16(char *buffer, int value)
+char * serialize_int16(char *buffer, uint16_t value)
 {
   /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
   buffer[0] = value >> 8;
@@ -82,7 +82,9 @@ char * serialize_int16(char *buffer, int value)
 
 char * serialize_struct_data(char *buffer, struct TCPHeader *value)
 {
+  printf("Attempt to serialize src_port. It's value is: %d\n", value->src_port);
   buffer = serialize_int16(buffer, value->src_port);
+  printf("The value of the buffer is %s\n", buffer - 2);
   buffer = serialize_int16(buffer, value->dst_port);
   buffer = serialize_int32(buffer, value->seq_num);
   buffer = serialize_int32(buffer, value->ack_num);
@@ -111,6 +113,11 @@ int main(int argc, char **argv) {
   struct TCPHeader header; /* struct that holds tcp header info */
   char headerBuf[BUFSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
+
+  binn *serializedObj;
+  serializedObj = binn_object();
+
+
   /* 
    * check command line arguments 
    */
@@ -218,7 +225,7 @@ int main(int argc, char **argv) {
     header.options = 9;
 
     serializationPtr = serialize_struct_data(headerBuf, &header);
-    serializationPtr[1] = '\0';
+    // serializationPtr[1] = '\0';
 
     printf("Length of headerBuf is: %d", strlen(headerBuf));
     printf("Attempting to send headerBuf with data: %s\n", headerBuf);

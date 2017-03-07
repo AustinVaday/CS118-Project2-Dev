@@ -1,10 +1,10 @@
 CC = gcc
 default: client server	
 
-client: client.c
+client: client.c binn.c
 	$(CC) -g -o $@ client.c
 
-server:	server.c
+server:	server.c binn.c
 	$(CC) -g -o $@ server.c
 
 dist: client.c server.c README Makefile report.pdf 
