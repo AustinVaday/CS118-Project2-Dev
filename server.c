@@ -43,6 +43,59 @@ void printBufHex(char *buf) {
   printf("\n");
 }
 
+
+struct TCPHeader {
+  uint16_t src_port;
+  uint16_t dst_port;
+  uint32_t seq_num;
+  uint32_t ack_num;
+  uint16_t offset_reserved_ctrl; // Merge data offset, reserved and control bits into one 16-bit val
+  uint16_t window;
+  uint16_t checksum;
+  uint16_t urgent_pointer;
+  uint32_t options;
+};
+
+char * serialize_int32(char *buffer, uint32_t value)
+{
+  /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
+  buffer[0] = value >> 24;
+  buffer[1] = value >> 16;
+  buffer[2] = value >> 8;
+  buffer[3] = value;
+  return buffer + 4;
+}
+
+char * serialize_int16(char *buffer, int value)
+{
+  /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
+  buffer[0] = value >> 8;
+  buffer[1] = value;
+  return buffer + 2;
+}
+
+// unsigned char * serialize_char(unsigned char *buffer, char value)
+// {
+//   buffer[0] = value;
+//   return buffer + 1;
+// }
+
+char * serialize_struct_data(char *buffer, struct TCPHeader *value)
+{
+  buffer = serialize_int16(buffer, value->src_port);
+  buffer = serialize_int16(buffer, value->dst_port);
+  buffer = serialize_int32(buffer, value->seq_num);
+  buffer = serialize_int32(buffer, value->ack_num);
+  buffer = serialize_int16(buffer, value->offset_reserved_ctrl);
+  buffer = serialize_int16(buffer, value->window);
+  buffer = serialize_int16(buffer, value->checksum);
+  buffer = serialize_int16(buffer, value->urgent_pointer);
+  buffer = serialize_int32(buffer, value->options);
+
+  return buffer;
+}
+
+
 int main(int argc, char **argv) {
   int sockfd; /* socket */
   int portno; /* port to listen on */
@@ -54,8 +107,10 @@ int main(int argc, char **argv) {
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
-  FILE * file;
-
+  FILE * file; /* file that is requested from client */
+  struct TCPHeader header; /* struct that holds tcp header info */
+  char headerBuf[BUFSIZE]; /* tcp header buffer */
+  char *serializationPtr; /* location after serialization of struct */
   /* 
    * check command line arguments 
    */
@@ -134,21 +189,44 @@ int main(int argc, char **argv) {
     // Check if file resides on system
     if (file)
     {
-        sprintf(responseBuf, "Awesome! We found file "%s" on our system.\n", buf);
+        sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", buf);
         fclose(file);
     }
     else 
     {
-        sprintf(responseBuf, "Sorry, could not find file "%s" on our system.\n", buf);
+        sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", buf);
     }
     
-    printf("RESPONSEBUF IS: %s\n", responseBuf);
+    printf("Server response: %s\n", responseBuf);
 
     /* 
      * sendto: echo the input back to the client 
      */
     n = sendto(sockfd, responseBuf, strlen(responseBuf), 0, 
-	       (struct sockaddr *) &clientaddr, clientlen);
+         (struct sockaddr *) &clientaddr, clientlen);
+    if (n < 0) 
+      error("ERROR in sendto");
+
+    header.src_port = 1;
+    header.dst_port = 2;
+    header.seq_num  = 3;
+    header.ack_num  = 4;
+    header.offset_reserved_ctrl = 5; // Merge data offset, reserved and control bits into one 16-bit val
+    header.window = 6;
+    header.checksum = 7;
+    header.urgent_pointer = 8;
+    header.options = 9;
+
+    serializationPtr = serialize_struct_data(headerBuf, &header);
+    serializationPtr[1] = '\0';
+
+    printf("Length of headerBuf is: %d", strlen(headerBuf));
+    printf("Attempting to send headerBuf with data: %s\n", headerBuf);
+    printf("Location of headerBuf is: %p\n", headerBuf);
+    printf("Location of serializationPtr is: %p\n", serializationPtr);
+
+    n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
+         (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");
   }
