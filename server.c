@@ -114,8 +114,8 @@ int main(int argc, char **argv) {
   char headerBuf[BUFSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
 
-  binn *serializedObj;
-  serializedObj = binn_object();
+  /* binn *serializedObj; */
+  /* serializedObj = binn_object(); */
 
 
   /* 
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
      */
     bzero(buf, BUFSIZE);
     n = recvfrom(sockfd, buf, BUFSIZE, 0,
-		 (struct sockaddr *) &clientaddr, &clientlen);
+		 (struct sockaddr *) &clientaddr, (socklen_t*) &clientlen);
     if (n < 0)
       error("ERROR in recvfrom");
 
@@ -185,7 +185,7 @@ int main(int argc, char **argv) {
       error("ERROR on inet_ntoa\n");
     printf("server received datagram from %s (%s)\n", 
 	   hostp->h_name, hostaddrp);
-    printf("server received %d/%d bytes: %s\n", strlen(buf), n, buf);
+    printf("server received %d/%d bytes: %s\n", (int) strlen(buf), n, buf);
     
     char responseBuf[BUFSIZE];
 
@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
     serializationPtr = serialize_struct_data(headerBuf, &header);
     // serializationPtr[1] = '\0';
 
-    printf("Length of headerBuf is: %d", strlen(headerBuf));
+    printf("Length of headerBuf is: %d", (int) strlen(headerBuf));
     printf("Attempting to send headerBuf with data: %s\n", headerBuf);
     printf("Location of headerBuf is: %p\n", headerBuf);
     printf("Location of serializationPtr is: %p\n", serializationPtr);
