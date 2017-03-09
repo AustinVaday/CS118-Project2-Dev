@@ -12,7 +12,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
- 
+
+#include "tcp.h"
+
 #define BUFSIZE 1024
 
 /*
@@ -44,20 +46,13 @@ void printBufHex(char *buf) {
 }
 
 
-struct TCPHeader {
-  uint16_t src_port;
-  uint16_t dst_port;
-  uint32_t seq_num;
-  uint32_t ack_num;
-  uint16_t offset_reserved_ctrl; // Merge data offset, reserved and control bits into one 16-bit val
-  uint16_t window;
-  uint16_t checksum;
-  uint16_t urgent_pointer;
-  uint32_t options;
-};
 
 char * serialize_int32(char *buffer, uint32_t value)
 {
+    /* we choose to store the most significant byte of the integer to the least
+significant byte of the serialization buffer;
+the policy does not matter as long as the same is used in client code to deserialize
+    */
   /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
   buffer[0] = value >> 24;
   buffer[1] = value >> 16;
@@ -68,10 +63,14 @@ char * serialize_int32(char *buffer, uint32_t value)
 
 char * serialize_int16(char *buffer, uint16_t value)
 {
-  /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
-  buffer[0] = value >> 8;
-  buffer[1] = value;
-  return buffer + 2;
+    /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
+    //printf("value = %x\n", value);
+    //printf("value >> 8 = %x\n", (char) value >> 8);
+    buffer[0] = value >> 8;
+    buffer[1] = value;
+    printf("buffer[0] = %x\n", buffer[0]);
+    printf("buffer[1] = %x\n", buffer[1]);
+    return buffer + 2;
 }
 
 // unsigned char * serialize_char(unsigned char *buffer, char value)
@@ -82,19 +81,21 @@ char * serialize_int16(char *buffer, uint16_t value)
 
 char * serialize_struct_data(char *buffer, struct TCPHeader *value)
 {
-  printf("Attempt to serialize src_port. It's value is: %d\n", value->src_port);
-  buffer = serialize_int16(buffer, value->src_port);
-  printf("The value of the buffer is %s\n", buffer - 2);
-  buffer = serialize_int16(buffer, value->dst_port);
-  buffer = serialize_int32(buffer, value->seq_num);
-  buffer = serialize_int32(buffer, value->ack_num);
-  buffer = serialize_int16(buffer, value->offset_reserved_ctrl);
-  buffer = serialize_int16(buffer, value->window);
-  buffer = serialize_int16(buffer, value->checksum);
-  buffer = serialize_int16(buffer, value->urgent_pointer);
-  buffer = serialize_int32(buffer, value->options);
+    char* buffer_incr = buffer;
+    //printf("Attempt to serialize src_port. It's value is: %d\n", value->src_port);
+    buffer_incr = serialize_int16(buffer_incr, value->src_port);
+    //printf("The value of the buffer_incr is %s\n", buffer_incr - 2);
+    buffer_incr = serialize_int16(buffer_incr, value->dst_port);
+    buffer_incr = serialize_int32(buffer_incr, value->seq_num);
+    buffer_incr = serialize_int32(buffer_incr, value->ack_num);
+    buffer_incr = serialize_int16(buffer_incr, value->offset_reserved_ctrl);
+    buffer_incr = serialize_int16(buffer_incr, value->window);
+    buffer_incr = serialize_int16(buffer_incr, value->checksum);
+    buffer_incr = serialize_int16(buffer_incr, value->urgent_pointer);
+    buffer_incr = serialize_int32(buffer_incr, value->options);
 
-  return buffer;
+    //printf("buffer after serialize_struct_data = %s\n", buffer);
+    return buffer_incr;
 }
 
 
@@ -114,6 +115,7 @@ int main(int argc, char **argv) {
   char headerBuf[BUFSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
 
+  memset(headerBuf, 0, BUFSIZE);
   /* binn *serializedObj; */
   /* serializedObj = binn_object(); */
 
@@ -209,10 +211,10 @@ int main(int argc, char **argv) {
     /* 
      * sendto: echo the input back to the client 
      */
-    n = sendto(sockfd, responseBuf, strlen(responseBuf), 0, 
-         (struct sockaddr *) &clientaddr, clientlen);
-    if (n < 0) 
-      error("ERROR in sendto");
+    /* n = sendto(sockfd, responseBuf, strlen(responseBuf), 0,  */
+    /*      (struct sockaddr *) &clientaddr, clientlen); */
+    /* if (n < 0)  */
+    /*   error("ERROR in sendto"); */
 
     header.src_port = 1;
     header.dst_port = 2;
@@ -227,11 +229,20 @@ int main(int argc, char **argv) {
     serializationPtr = serialize_struct_data(headerBuf, &header);
     // serializationPtr[1] = '\0';
 
-    printf("Length of headerBuf is: %d", (int) strlen(headerBuf));
-    printf("Attempting to send headerBuf with data: %s\n", headerBuf);
-    printf("Location of headerBuf is: %p\n", headerBuf);
-    printf("Location of serializationPtr is: %p\n", serializationPtr);
+    /* printf("Length of headerBuf is: %d\n", (int) strlen(headerBuf)); */
+    /* printf("Attempting to send headerBuf with data: %s\n", headerBuf); */
+    /* printf("Location of headerBuf is: %p\n", headerBuf); */
+    /* printf("Location of serializationPtr is: %p\n", serializationPtr); */
 
+    int i;
+    printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[BUFSIZE - 1]----\n");
+    for (i = 0; i < BUFSIZE; i++) {
+	printf("%x ", headerBuf[i]);
+    }
+    printf("\n--------\n");
+    
+    /* printBufHex(headerBuf); */
+    
     n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
          (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
