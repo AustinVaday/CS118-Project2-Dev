@@ -119,6 +119,7 @@ int main(int argc, char **argv) {
   struct TCPHeader header; /* struct that holds tcp header info */
   char headerBuf[HEADERSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
+  char *tcpObject;
 
   memset(headerBuf, 0, HEADERSIZE);
 
@@ -242,9 +243,35 @@ int main(int argc, char **argv) {
     }
     printf("\n--------\n");
     
+    // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
+    // Allocate enough space for header + response
+    int tcpObjectLength = HEADERSIZE + strlen(responseBuf);
+
+    tcpObject = (char *) malloc(tcpObjectLength);
+
+    for (i = 0; i < HEADERSIZE; i++) {
+      tcpObject[i] = headerBuf[i];
+    }
+
+    int objContinuedIndex = HEADERSIZE;
+    for (i = 0; i < strlen(responseBuf); i++, objContinuedIndex++)
+    {
+      tcpObject[objContinuedIndex] = responseBuf[i]; 
+    }
+    //strncpy(tcpObject, headerBuf, HEADERSIZE);
+    //strcat(tcpObject, responseBuf);
+
+    printf("The TCP object: each number represents a byte\n----tcpObject[0] to tcpObject[tcpObjectLength - 1]----\n");
+    for (i = 0; i < tcpObjectLength; i++) {
+     printf("%x ", tcpObject[i]);
+    }
+    printf("\n--------\n");
+
     /* printBufHex(headerBuf); */
     
-    n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
+    // n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
+    //      (struct sockaddr *) &clientaddr, clientlen);
+    n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
          (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");

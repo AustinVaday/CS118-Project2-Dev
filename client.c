@@ -92,6 +92,8 @@ int main(int argc, char **argv) {
     struct hostent *server;
     char *hostname;
     char buf[BUFSIZE];
+    char headerBuf[HEADERSIZE];
+    char *dataBuf;
 
     /* check command line arguments */
     if (argc != 3) {
@@ -141,11 +143,29 @@ int main(int argc, char **argv) {
         if (n < 0) 
           error("ERROR in recvfrom");
         /* printf("Server response: %s", buf); */
-	deserialize_struct_data(buf, &tcp_header);
-	
-	printf("tcp_header.src_port = %d\n", tcp_header.src_port);
-	printf("tcp_header.dst_port = %d\n", tcp_header.dst_port);
-	printf("tcp_header.seq_num = %d\n", tcp_header.seq_num);
-    }
+
+        // Store header byte stream into header buff
+        int i;
+        for (i = 0; i < HEADERSIZE; i++) {
+           headerBuf[i] = buf[i];
+        }
+        
+        // Point data buf to location where data begins
+        dataBuf = buf + HEADERSIZE;
+
+        printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
+        for (i = 0; i < HEADERSIZE; i++) {
+           printf("%x ", headerBuf[i]);
+        }
+        printf("\n--------\n");
+
+        printf("The data sent was: %s", dataBuf);
+
+    	deserialize_struct_data(headerBuf, &tcp_header);
+    	
+    	printf("tcp_header.src_port = %d\n", tcp_header.src_port);
+    	printf("tcp_header.dst_port = %d\n", tcp_header.dst_port);
+    	printf("tcp_header.seq_num = %d\n", tcp_header.seq_num);
+        }
     return 0;
 }
