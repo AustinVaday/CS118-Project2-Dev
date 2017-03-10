@@ -12,10 +12,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
 #include "tcp.h"
 
 #define BUFSIZE 1024
+
+// TCP Header Size total number of bits
+// We need to know the size of a TCP header
+// so that we can parse data sent over udp accordingly
+#define HEADERSIZE 24
 
 /*
  * error - wrapper for perror
@@ -112,13 +116,10 @@ int main(int argc, char **argv) {
   int n; /* message byte size */
   FILE * file; /* file that is requested from client */
   struct TCPHeader header; /* struct that holds tcp header info */
-  char headerBuf[BUFSIZE]; /* tcp header buffer */
+  char headerBuf[HEADERSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
 
-  memset(headerBuf, 0, BUFSIZE);
-  /* binn *serializedObj; */
-  /* serializedObj = binn_object(); */
-
+  memset(headerBuf, 0, HEADERSIZE);
 
   /* 
    * check command line arguments 
@@ -227,7 +228,6 @@ int main(int argc, char **argv) {
     header.options = 9;
 
     serializationPtr = serialize_struct_data(headerBuf, &header);
-    // serializationPtr[1] = '\0';
 
     /* printf("Length of headerBuf is: %d\n", (int) strlen(headerBuf)); */
     /* printf("Attempting to send headerBuf with data: %s\n", headerBuf); */
@@ -235,9 +235,9 @@ int main(int argc, char **argv) {
     /* printf("Location of serializationPtr is: %p\n", serializationPtr); */
 
     int i;
-    printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[BUFSIZE - 1]----\n");
-    for (i = 0; i < BUFSIZE; i++) {
-	printf("%x ", headerBuf[i]);
+    printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
+    for (i = 0; i < HEADERSIZE; i++) {
+	   printf("%x ", headerBuf[i]);
     }
     printf("\n--------\n");
     

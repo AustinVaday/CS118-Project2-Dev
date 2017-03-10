@@ -15,6 +15,13 @@
 
 #define BUFSIZE 1024
 
+
+// TCP Header Size total number of bits
+// We need to know the size of a TCP header
+// so that we can parse data sent over udp accordingly
+#define HEADERSIZE 24
+
+
 /* 
  * error - wrapper for perror
  */
