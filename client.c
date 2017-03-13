@@ -2,25 +2,8 @@
  * client.c - A simple UDP client
  * usage: udpclient <host> <port>
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h> 
 
 #include "tcp.h"
-
-#define BUFSIZE 1024
-
-
-// TCP Header Size total number of bits
-// We need to know the size of a TCP header
-// so that we can parse data sent over udp accordingly
-#define HEADERSIZE 24
-
 
 /* 
  * error - wrapper for perror
@@ -30,60 +13,6 @@ void error(char *msg) {
     exit(0);
 }
 
-char* deserialize_int32(char *buffer, uint32_t *value) {
-    uint32_t res = 0;
-    uint32_t one_byte = 0;
-    one_byte = buffer[0] << 24;
-    res |= one_byte;
-
-    one_byte = 0;
-    one_byte = buffer[1] << 16;
-    res |= one_byte;
-
-    one_byte = 0;
-    one_byte = buffer[2] << 8;
-    res |= one_byte;
-
-    one_byte = 0;
-    one_byte = buffer[3];
-    res |= one_byte;
-
-    *value = res;
-    return buffer + 4;
-}
-
-char* deserialize_int16(char *buffer, uint16_t *value) {
-    uint16_t res = 0;
-    uint16_t one_byte = 0;
-    one_byte = buffer[0] << 8;
-    res |= one_byte;
-
-    one_byte = 0;
-    one_byte = buffer[1];
-    res |= one_byte;
-
-    *value = res;
-    return buffer + 2;
-}
-
-char* deserialize_struct_data(char *buffer, struct TCPHeader *value) {
-    /* using the same policy in server code to deserialize the buffer and store
-    values into the struct
-    */
-    char* buffer_incr = buffer;
-    
-    buffer_incr = deserialize_int16(buffer_incr, &value->src_port);
-    buffer_incr = deserialize_int16(buffer_incr, &value->dst_port);
-    buffer_incr = deserialize_int32(buffer_incr, &value->seq_num);
-    buffer_incr = deserialize_int32(buffer_incr, &value->ack_num);
-    buffer_incr = deserialize_int16(buffer_incr, &value->offset_reserved_ctrl);
-    buffer_incr = deserialize_int16(buffer_incr, &value->window);
-    buffer_incr = deserialize_int16(buffer_incr, &value->checksum);
-    buffer_incr = deserialize_int16(buffer_incr, &value->urgent_pointer);
-    buffer_incr = deserialize_int32(buffer_incr, &value->options);
-
-    return buffer_incr;
-}
 
 int main(int argc, char **argv) {
     int sockfd, portno, n;
@@ -94,6 +23,8 @@ int main(int argc, char **argv) {
     char buf[BUFSIZE];
     char headerBuf[HEADERSIZE];
     char *dataBuf;
+    char *serializationPtr; /* location after serialization of struct */
+    char *tcpObject;
 
     /* check command line arguments */
     if (argc != 3) {
@@ -122,8 +53,11 @@ int main(int argc, char **argv) {
 	  (char *)&serveraddr.sin_addr.s_addr, server->h_length);
     serveraddr.sin_port = htons(portno);
 
-    struct TCPHeader tcp_header;
-    memset(&tcp_header, 0, sizeof(struct TCPHeader));
+    struct TCPHeader tcp_header_send; /* struct that holds tcp header info */
+    memset(&tcp_header_send, 0, sizeof(struct TCPHeader));
+
+    struct TCPHeader tcp_header_receive;
+    memset(&tcp_header_receive, 0, sizeof(struct TCPHeader));
     
     while(1) 
     {
@@ -132,6 +66,22 @@ int main(int argc, char **argv) {
         printf("File to request from server: ");
         fgets(buf, BUFSIZE, stdin);
     
+        // Construct TCP header
+        tcp_header_send.src_port = portno;
+        tcp_header_send.dst_port = portno;
+        tcp_header_send.seq_num  = 3;
+        tcp_header_send.ack_num  = 4;
+        tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+        tcp_header_send.window = 6;
+        tcp_header_send.checksum = 7;
+        tcp_header_send.urgent_pointer = 8;
+        tcp_header_send.options = 9;
+
+        // Serialize struct into character string
+        serializationPtr = serialize_struct_data(headerBuf, &tcp_header_send);
+
+
+
         /* send the message to the server */
         serverlen = sizeof(serveraddr);
         n = sendto(sockfd, buf, strlen(buf), 0, &serveraddr, serverlen);
@@ -161,11 +111,13 @@ int main(int argc, char **argv) {
 
         printf("The data sent was: %s", dataBuf);
 
-    	deserialize_struct_data(headerBuf, &tcp_header);
+    	deserialize_struct_data(headerBuf, &tcp_header_receive);
     	
-    	printf("tcp_header.src_port = %d\n", tcp_header.src_port);
-    	printf("tcp_header.dst_port = %d\n", tcp_header.dst_port);
-    	printf("tcp_header.seq_num = %d\n", tcp_header.seq_num);
+    	printf("tcp_header_receive.src_port = %d\n", tcp_header_receive.src_port);
+    	printf("tcp_header_receive.dst_port = %d\n", tcp_header_receive.dst_port);
+    	printf("tcp_header_receive.seq_num = %d\n", tcp_header_receive.seq_num);
+        printf("tcp_header_receive.offset_reserved_ctrl = %d\n", tcp_header_receive.offset_reserved_ctrl);
+
         }
     return 0;
 }

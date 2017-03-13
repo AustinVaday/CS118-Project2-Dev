@@ -2,25 +2,8 @@
  * server.c - A simple UDP echo server 
  * usage: udpserver <port>
  */
-
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <netdb.h>
-#include <sys/types.h> 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include "tcp.h"
 
-#define BUFSIZE 1024
-
-// TCP Header Size total number of bits
-// We need to know the size of a TCP header
-// so that we can parse data sent over udp accordingly
-#define HEADERSIZE 24
 
 /*
  * error - wrapper for perror
@@ -49,60 +32,6 @@ void printBufHex(char *buf) {
   }
   printf("\n");
 }
-
-
-
-char * serialize_int32(char *buffer, uint32_t value)
-{
-    /* we choose to store the most significant byte of the integer to the least
-significant byte of the serialization buffer;
-the policy does not matter as long as the same is used in client code to deserialize
-    */
-  /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
-  buffer[0] = value >> 24;
-  buffer[1] = value >> 16;
-  buffer[2] = value >> 8;
-  buffer[3] = value;
-  return buffer + 4;
-}
-
-char * serialize_int16(char *buffer, uint16_t value)
-{
-    /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
-    //printf("value = %x\n", value);
-    //printf("value >> 8 = %x\n", (char) value >> 8);
-    buffer[0] = value >> 8;
-    buffer[1] = value;
-    printf("buffer[0] = %x\n", buffer[0]);
-    printf("buffer[1] = %x\n", buffer[1]);
-    return buffer + 2;
-}
-
-// unsigned char * serialize_char(unsigned char *buffer, char value)
-// {
-//   buffer[0] = value;
-//   return buffer + 1;
-// }
-
-char * serialize_struct_data(char *buffer, struct TCPHeader *value)
-{
-    char* buffer_incr = buffer;
-    //printf("Attempt to serialize src_port. It's value is: %d\n", value->src_port);
-    buffer_incr = serialize_int16(buffer_incr, value->src_port);
-    //printf("The value of the buffer_incr is %s\n", buffer_incr - 2);
-    buffer_incr = serialize_int16(buffer_incr, value->dst_port);
-    buffer_incr = serialize_int32(buffer_incr, value->seq_num);
-    buffer_incr = serialize_int32(buffer_incr, value->ack_num);
-    buffer_incr = serialize_int16(buffer_incr, value->offset_reserved_ctrl);
-    buffer_incr = serialize_int16(buffer_incr, value->window);
-    buffer_incr = serialize_int16(buffer_incr, value->checksum);
-    buffer_incr = serialize_int16(buffer_incr, value->urgent_pointer);
-    buffer_incr = serialize_int32(buffer_incr, value->options);
-
-    //printf("buffer after serialize_struct_data = %s\n", buffer);
-    return buffer_incr;
-}
-
 
 int main(int argc, char **argv) {
   int sockfd; /* socket */
@@ -219,7 +148,9 @@ int main(int argc, char **argv) {
     /* if (n < 0)  */
     /*   error("ERROR in sendto"); */
 
+    printf("port number is: %d", portno);
     header.src_port = 1;
+    printf("src port number is: %d", header.src_port);
     header.dst_port = 2;
     header.seq_num  = 3;
     header.ack_num  = 4;
@@ -229,46 +160,6 @@ int main(int argc, char **argv) {
     header.urgent_pointer = 8;
     header.options = 9;
 
-    serializationPtr = serialize_struct_data(headerBuf, &header);
-
-    /* printf("Length of headerBuf is: %d\n", (int) strlen(headerBuf)); */
-    /* printf("Attempting to send headerBuf with data: %s\n", headerBuf); */
-    /* printf("Location of headerBuf is: %p\n", headerBuf); */
-    /* printf("Location of serializationPtr is: %p\n", serializationPtr); */
-
-    int i;
-    printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
-    for (i = 0; i < HEADERSIZE; i++) {
-	   printf("%x ", headerBuf[i]);
-    }
-    printf("\n--------\n");
-    
-    // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
-    // Allocate enough space for header + response
-    int tcpObjectLength = HEADERSIZE + strlen(responseBuf);
-
-    tcpObject = (char *) malloc(tcpObjectLength);
-
-    for (i = 0; i < HEADERSIZE; i++) {
-      tcpObject[i] = headerBuf[i];
-    }
-
-    int objContinuedIndex = HEADERSIZE;
-    for (i = 0; i < strlen(responseBuf); i++, objContinuedIndex++)
-    {
-      tcpObject[objContinuedIndex] = responseBuf[i]; 
-    }
-    //strncpy(tcpObject, headerBuf, HEADERSIZE);
-    //strcat(tcpObject, responseBuf);
-
-    printf("The TCP object: each number represents a byte\n----tcpObject[0] to tcpObject[tcpObjectLength - 1]----\n");
-    for (i = 0; i < tcpObjectLength; i++) {
-     printf("%x ", tcpObject[i]);
-    }
-    printf("\n--------\n");
-
-    /* printBufHex(headerBuf); */
-    
     printf("Testing bit sets. Initial is: %x\n", header.offset_reserved_ctrl);
     set_fin_bit(&header);
     printf("After setting fin bit: %x\n", header.offset_reserved_ctrl);
@@ -276,6 +167,25 @@ int main(int argc, char **argv) {
     printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
     set_ack_bit(&header);
     printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
+
+    serializationPtr = serialize_struct_data(headerBuf, &header);
+
+    /* printf("Length of headerBuf is: %d\n", (int) strlen(headerBuf)); */
+    /* printf("Attempting to send headerBuf with data: %s\n", headerBuf); */
+    /* printf("Location of headerBuf is: %p\n", headerBuf); */
+    /* printf("Location of serializationPtr is: %p\n", serializationPtr); */
+
+    // int i;
+    // printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
+    // for (i = 0; i < HEADERSIZE; i++) {
+	   // printf("%x ", headerBuf[i]);
+    // }
+    // printf("\n--------\n");
+    
+    // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
+    // Allocate enough space for header + response
+    int tcpObjectLength = HEADERSIZE + strlen(responseBuf);
+    tcpObject = constructTCPObject(headerBuf, responseBuf);
 
 
     // n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
