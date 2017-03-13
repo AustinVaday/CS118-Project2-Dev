@@ -223,7 +223,7 @@ int main(int argc, char **argv) {
     header.dst_port = 2;
     header.seq_num  = 3;
     header.ack_num  = 4;
-    header.offset_reserved_ctrl = 5; // Merge data offset, reserved and control bits into one 16-bit val
+    header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
     header.window = 6;
     header.checksum = 7;
     header.urgent_pointer = 8;
@@ -269,6 +269,15 @@ int main(int argc, char **argv) {
 
     /* printBufHex(headerBuf); */
     
+    printf("Testing bit sets. Initial is: %x\n", header.offset_reserved_ctrl);
+    set_fin_bit(&header);
+    printf("After setting fin bit: %x\n", header.offset_reserved_ctrl);
+    set_syn_bit(&header);
+    printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
+    set_ack_bit(&header);
+    printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
+
+
     // n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
     //      (struct sockaddr *) &clientaddr, clientlen);
     n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
