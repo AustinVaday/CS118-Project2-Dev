@@ -113,10 +113,8 @@ int main(int argc, char **argv) {
 
     	deserialize_struct_data(headerBuf, &tcp_header_receive);
     	
-    	printf("tcp_header_receive.src_port = %d\n", tcp_header_receive.src_port);
-    	printf("tcp_header_receive.dst_port = %d\n", tcp_header_receive.dst_port);
-    	printf("tcp_header_receive.seq_num = %d\n", tcp_header_receive.seq_num);
-        printf("tcp_header_receive.offset_reserved_ctrl = %d\n", tcp_header_receive.offset_reserved_ctrl);
+        printTCPHeaderStruct(&tcp_header_receive);
+
 
         }
     return 0;

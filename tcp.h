@@ -52,13 +52,30 @@ struct TCPHeader {
   uint32_t options;
 };
 
+void printTCPHeaderStruct(struct TCPHeader *header)
+{
+	printf("Printing TCP Header struct\n");
+	printf("--------------------------\n");
+	printf("header->src_port = %d\n", header->src_port);
+	printf("header->dst_port = %d\n", header->dst_port);
+	printf("header->seq_num = %d\n", header->seq_num);
+	printf("header->ack_num = %d\n", header->ack_num);
+    printf("header->offset_reserved_ctrl = %d\n", header->offset_reserved_ctrl);
+    printf("header->window = %d\n", header->window);
+    printf("header->checksum = %d\n", header->checksum);
+    printf("header->urgent_pointer = %d\n", header->urgent_pointer);
+    printf("header->options = %d\n", header->options);    
+    printf("--------------------------\n");
+
+}
+
 char *constructTCPObject(char *tcpHeader, char *data)
 {
 
   int tcpObjectLength = HEADERSIZE + strlen(data);
   char *tcpObject = (char *) malloc(tcpObjectLength);
   int i;
-  
+
   for (i = 0; i < HEADERSIZE; i++) {
     tcpObject[i] = tcpHeader[i];
   }

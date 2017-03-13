@@ -148,9 +148,7 @@ int main(int argc, char **argv) {
     /* if (n < 0)  */
     /*   error("ERROR in sendto"); */
 
-    printf("port number is: %d", portno);
-    header.src_port = 1;
-    printf("src port number is: %d", header.src_port);
+    header.src_port = portno;
     header.dst_port = 2;
     header.seq_num  = 3;
     header.ack_num  = 4;
@@ -167,6 +165,8 @@ int main(int argc, char **argv) {
     printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
     set_ack_bit(&header);
     printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
+
+    printTCPHeaderStruct(&header);
 
     serializationPtr = serialize_struct_data(headerBuf, &header);
 
