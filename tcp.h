@@ -102,18 +102,28 @@ significant byte of the serialization buffer;
 the policy does not matter as long as the same is used in client code to deserialize
     */
   /* Write big-endian int value into buffer; assumes 32-bit int and 8-bit char. */
-  buffer[0] = value >> 24;
-  buffer[1] = value >> 16;
-  buffer[2] = value >> 8;
-  buffer[3] = value;
-  return buffer + 4;
+  /* buffer[0] = value >> 24; */
+  /* buffer[1] = value >> 16; */
+  /* buffer[2] = value >> 8; */
+  /* buffer[3] = value; */
+
+    // little-endian serialization approach
+    buffer[0] = value;
+    buffer[1] = value >> 8;
+    buffer[2] = value >> 16;
+    buffer[3] = value >> 24;
+    return buffer + 4;
 }
 
 char * serialize_int16(char *buffer, uint16_t value)
 {
     /* Write big-endian int value into buffer; assumes 16-bit int and 8-bit char. */
-    buffer[0] = value >> 8;
-    buffer[1] = value;
+    /* buffer[0] = value >> 8; */
+    /* buffer[1] = value; */
+
+    // little-endian serialization approach
+    buffer[0] = value;
+    buffer[1] = value >> 8;
     return buffer + 2;
 }
 
@@ -134,8 +144,7 @@ char * serialize_struct_data(char *buffer, struct TCPHeader *value)
 }
 
 char* deserialize_int32(char *buffer, uint32_t *value) {
-    uint32_t res = 0;
-    uint32_t one_byte = 0;
+    /* Big endian serialization approach
     one_byte = buffer[0] << 24;
     res |= one_byte;
 
@@ -150,21 +159,50 @@ char* deserialize_int32(char *buffer, uint32_t *value) {
     one_byte = 0;
     one_byte = buffer[3];
     res |= one_byte;
+    */
+
+    // little endian serialization approach
+    uint32_t res = 0, temp = 0;
+    temp = 0;
+    temp = buffer[3];
+    temp = temp << 24;
+    res |= temp;
+
+    temp = 0;
+    temp = buffer[2];
+    temp = temp << 16;
+    res |= temp;
+
+    temp = 0;
+    temp = buffer[1];
+    temp = temp << 8;
+    res |= temp;
+
+    temp = 0;
+    temp = buffer[0];
+    res |= temp;
 
     *value = res;
     return buffer + 4;
 }
 
 char* deserialize_int16(char *buffer, uint16_t *value) {
-    uint16_t res = 0;
-    uint16_t one_byte = 0;
-    one_byte = buffer[0] << 8;
-    res |= one_byte;
+    /* one_byte = buffer[0] << 8; */
+    /* res |= one_byte; */
 
-    one_byte = 0;
-    one_byte = buffer[1];
-    res |= one_byte;
+    /* one_byte = 0; */
+    /* one_byte = buffer[1]; */
+    /* res |= one_byte; */
+    
+    uint16_t res = 0, temp = 0;
+    temp = buffer[1];
+    temp = temp << 8;
+    res |= temp;
 
+    temp = 0;
+    temp = buffer[0];
+    res |= temp;
+    
     *value = res;
     return buffer + 2;
 }

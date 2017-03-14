@@ -1,0 +1,6 @@
+#include "stdio.h"
+int main() {
+    char *num16bits = ;
+    char num8bits = 2;
+    print("Uninitialized num16bits = %x", )
+}
