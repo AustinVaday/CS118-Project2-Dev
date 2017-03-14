@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
   char *serializationPtr; /* location after serialization of struct */
   char *tcpObject;
   char *dataBuf;
+  int syn = 0;
 
   memset(headerBuf, 0, HEADERSIZE);
 

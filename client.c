@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
     char *dataBuf;
     char *serializationPtr; /* location after serialization of struct */
     char *tcpObject;
+    int syn = 0;
 
     /* check command line arguments */
     if (argc != 3) {
@@ -61,21 +62,39 @@ int main(int argc, char **argv) {
     
     while(1) 
     {
-        /* get a message from the user */
-        bzero(buf, BUFSIZE);
-        printf("File to request from server: ");
-        fgets(buf, BUFSIZE, stdin);
-    
-        // Construct TCP header
-        tcp_header_send.src_port = portno;
-        tcp_header_send.dst_port = portno;
-        tcp_header_send.seq_num  = 3;
-        tcp_header_send.ack_num  = 4;
-        tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-        tcp_header_send.window = 6;
-        tcp_header_send.checksum = 7;
-        tcp_header_send.urgent_pointer = 8;
-        tcp_header_send.options = 9;
+        // Send syn packet if we haven't already
+        if (!syn)
+        {
+            tcp_header_send.src_port = portno;
+            tcp_header_send.dst_port = portno;
+            tcp_header_send.seq_num  = 3;
+            tcp_header_send.ack_num  = 4;
+            tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+            tcp_header_send.window = 6;
+            tcp_header_send.checksum = 7;
+            tcp_header_send.urgent_pointer = 8;
+            tcp_header_send.options = 9;
+
+            set_syn_bit(&tcp_header_send);
+            printf("Sending packet SYN\n");
+        }
+        else 
+        {
+            tcp_header_send.src_port = portno;
+            tcp_header_send.dst_port = portno;
+            tcp_header_send.seq_num  = 3;
+            tcp_header_send.ack_num  = 4;
+            tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+            tcp_header_send.window = 6;
+            tcp_header_send.checksum = 7;
+            tcp_header_send.urgent_pointer = 8;
+
+            /* get a message from the user */
+            bzero(buf, BUFSIZE);
+            printf("File to request from server: ");
+            fgets(buf, BUFSIZE, stdin);
+            
+        }
 
         // Serialize struct into character string
         printTCPHeaderStruct(&tcp_header_send);
@@ -120,6 +139,12 @@ int main(int argc, char **argv) {
     	deserialize_struct_data(headerBuf, &tcp_header_receive);
     	
         printTCPHeaderStruct(&tcp_header_receive);
+
+        if (!syn && is_syn_bit_set(&tcp_header_receive) && is_ack_bit_set(&tcp_header_receive))
+        {
+            printf("*** Server SYN ACK response!\n");
+            syn = 1;
+        }
 
 
         }
