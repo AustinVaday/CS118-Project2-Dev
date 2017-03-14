@@ -128,9 +128,9 @@ int main(int argc, char **argv) {
         // Point data buf to location where data begins
         dataBuf = buf + HEADERSIZE;
 
-        printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
+        printf("The received buffer (TCP header part): each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
         for (i = 0; i < HEADERSIZE; i++) {
-           printf("%x ", headerBuf[i]);
+           printf("%x ", headerBuf[i] & 0xFF);
         }
         printf("\n--------\n");
 

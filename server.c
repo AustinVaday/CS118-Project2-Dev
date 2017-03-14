@@ -162,7 +162,7 @@ int main(int argc, char **argv) {
 
     header.src_port = portno;
     header.dst_port = 2;
-    header.seq_num  = 3;
+    header.seq_num  = 604593537;
     header.ack_num  = 4;
     header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
     header.window = 6;
@@ -194,8 +194,6 @@ int main(int argc, char **argv) {
          (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");
-
-
 
     // Free pointers created via constructTCPObject
     free(tcpObject);
