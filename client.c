@@ -26,7 +26,9 @@ int main(int argc, char **argv) {
     char *serializationPtr; /* location after serialization of struct */
     char *tcpObject;
     int syn = 0;
-
+    int seq_num = 0;
+    int ack_num = 0;
+    
     /* check command line arguments */
     if (argc != 3) {
        fprintf(stderr,"usage: %s <hostname> <port>\n", argv[0]);

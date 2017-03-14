@@ -52,6 +52,8 @@ int main(int argc, char **argv) {
   char *tcpObject;
   char *dataBuf;
   int syn = 0;
+  int seq_num = 0;
+  int ack_num = 0;
 
   memset(headerBuf, 0, HEADERSIZE);
 
@@ -143,13 +145,13 @@ int main(int argc, char **argv) {
     {
       header.src_port = portno;
       header.dst_port = portno;
-      header.seq_num  = 3;
-      header.ack_num  = 4;
+      header.seq_num  = seq_num;
+      header.ack_num  = ack_num++;
       header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-      header.window = 6;
-      header.checksum = 7;
-      header.urgent_pointer = 8;
-      header.options = 9;
+      header.window = WINDOWSIZE;
+      header.checksum = 0;
+      header.urgent_pointer = 0;
+      header.options = 0;
 
       set_ack_bit(&header);
       set_syn_bit(&header);

@@ -13,6 +13,7 @@
 // so that we can parse data sent over udp accordingly
 #define HEADERSIZE 24
 #define BUFSIZE 1024
+#define WINDOWSIZE 5120
 /*
 
     0                   1                   2                   3   
