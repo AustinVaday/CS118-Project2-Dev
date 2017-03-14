@@ -46,11 +46,14 @@ int main(int argc, char **argv) {
   int n; /* message byte size */
   FILE * file; /* file that is requested from client */
   struct TCPHeader header; /* struct that holds tcp header info */
+  struct TCPHeader hearder_rec;
   char headerBuf[HEADERSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
   char *tcpObject;
   char *dataBuf;
   int syn = 0;
+  int seq_num = 0;
+  int ack_num = 0;
 
   memset(headerBuf, 0, HEADERSIZE);
 
@@ -104,9 +107,9 @@ int main(int argc, char **argv) {
      * recvfrom: receive a UDP datagram from a client
      */
     bzero(buf, BUFSIZE);
-    n = recvfrom(sockfd, buf, BUFSIZE, 0,
-		 (struct sockaddr *) &clientaddr, (socklen_t*) &clientlen);
-    if (n < 0)
+    n = recvfrom(sockfd, buf, BUFSIZE, 0, (struct sockaddr *) &clientaddr, (socklen_t*) &clientlen);
+
+    if (n < 0)     
       error("ERROR in recvfrom");
 
     /* 
@@ -132,25 +135,60 @@ int main(int argc, char **argv) {
        headerBuf[i] = buf[i];
     }
     
+    // Deserialize data 
+    deserialize_struct_data(headerBuf, &hearder_rec);
+
     // Point data buf to location where data begins
     dataBuf = buf + HEADERSIZE;
 
-    // Attempt to open requested file in buf
-    replaceNewlineWithTerminator(dataBuf);
-    file = fopen(dataBuf, "r");
-    
-    // Check if file resides on system
-    if (file)
+    if (/*!syn &&*/ is_syn_bit_set(&hearder_rec))
     {
-        sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", dataBuf);
-        fclose(file);
+      header.src_port = portno;
+      header.dst_port = portno;
+      header.seq_num  = seq_num;
+      header.ack_num  = ack_num++;
+      header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+      header.window = WINDOWSIZE;
+      header.checksum = 0;
+      header.urgent_pointer = 0;
+      header.options = 0;
+
+      set_ack_bit(&header);
+      set_syn_bit(&header);
+
+      printf("Sending packet ... ... SYN\n");
     }
     else 
     {
-        sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", dataBuf);
+      // Attempt to open requested file in buf
+      replaceNewlineWithTerminator(dataBuf);
+      file = fopen(dataBuf, "r");
+      
+      // Check if file resides on system
+      if (file)
+      {
+          sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", dataBuf);
+          fclose(file);
+      }
+      else 
+      {
+          sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", dataBuf);
+      }
+      
+      printf("Server response: %s\n", responseBuf);
+
+      header.src_port = portno;
+      header.dst_port = 2;
+      header.seq_num  = 3;
+      header.ack_num  = 4;
+      header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+      header.window = 6;
+      header.checksum = 7;
+      header.urgent_pointer = 8;
+      header.options = 9;
     }
+
     
-    printf("Server response: %s\n", responseBuf);
 
     /* 
      * sendto: echo the input back to the client 
@@ -160,23 +198,14 @@ int main(int argc, char **argv) {
     /* if (n < 0)  */
     /*   error("ERROR in sendto"); */
 
-    header.src_port = portno;
-    header.dst_port = 2;
-    header.seq_num  = 604593537;
-    header.ack_num  = 4;
-    header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-    header.window = 6;
-    header.checksum = 7;
-    header.urgent_pointer = 8;
-    header.options = 9;
 
-    printf("Testing bit sets. Initial is: %x\n", header.offset_reserved_ctrl);
-    set_fin_bit(&header);
-    printf("After setting fin bit: %x\n", header.offset_reserved_ctrl);
-    set_syn_bit(&header);
-    printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
-    set_ack_bit(&header);
-    printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
+    // printf("Testing bit sets. Initial is: %x\n", header.offset_reserved_ctrl);
+    // set_fin_bit(&header);
+    // printf("After setting fin bit: %x\n", header.offset_reserved_ctrl);
+    // set_syn_bit(&header);
+    // printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
+    // set_ack_bit(&header);
+    // printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
 
     printTCPHeaderStruct(&header);
 
