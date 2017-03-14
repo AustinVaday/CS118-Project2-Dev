@@ -78,13 +78,19 @@ int main(int argc, char **argv) {
         tcp_header_send.options = 9;
 
         // Serialize struct into character string
+        printTCPHeaderStruct(&tcp_header_send);
+
         serializationPtr = serialize_struct_data(headerBuf, &tcp_header_send);
 
+        // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
+        // Allocate enough space for header + response
+        int tcpObjectLength = HEADERSIZE + strlen(buf);
+        tcpObject = constructTCPObject(headerBuf, buf);
 
 
         /* send the message to the server */
         serverlen = sizeof(serveraddr);
-        n = sendto(sockfd, buf, strlen(buf), 0, &serveraddr, serverlen);
+        n = sendto(sockfd, tcpObject, tcpObjectLength, 0, &serveraddr, serverlen);
         if (n < 0) 
           error("ERROR in sendto");
         

@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
   char headerBuf[HEADERSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
   char *tcpObject;
+  char *dataBuf;
 
   memset(headerBuf, 0, HEADERSIZE);
 
@@ -123,19 +124,29 @@ int main(int argc, char **argv) {
     
     char responseBuf[BUFSIZE];
 
+    // Parse tcp object buf into corresponding header and data buffers
+    // Store header byte stream into header buff
+    int i;
+    for (i = 0; i < HEADERSIZE; i++) {
+       headerBuf[i] = buf[i];
+    }
+    
+    // Point data buf to location where data begins
+    dataBuf = buf + HEADERSIZE;
+
     // Attempt to open requested file in buf
-    replaceNewlineWithTerminator(buf);
-    file = fopen(buf, "r");
+    replaceNewlineWithTerminator(dataBuf);
+    file = fopen(dataBuf, "r");
     
     // Check if file resides on system
     if (file)
     {
-        sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", buf);
+        sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", dataBuf);
         fclose(file);
     }
     else 
     {
-        sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", buf);
+        sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", dataBuf);
     }
     
     printf("Server response: %s\n", responseBuf);
@@ -170,18 +181,6 @@ int main(int argc, char **argv) {
 
     serializationPtr = serialize_struct_data(headerBuf, &header);
 
-    /* printf("Length of headerBuf is: %d\n", (int) strlen(headerBuf)); */
-    /* printf("Attempting to send headerBuf with data: %s\n", headerBuf); */
-    /* printf("Location of headerBuf is: %p\n", headerBuf); */
-    /* printf("Location of serializationPtr is: %p\n", serializationPtr); */
-
-    // int i;
-    // printf("The serialized buffer: each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
-    // for (i = 0; i < HEADERSIZE; i++) {
-	   // printf("%x ", headerBuf[i]);
-    // }
-    // printf("\n--------\n");
-    
     // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
     // Allocate enough space for header + response
     int tcpObjectLength = HEADERSIZE + strlen(responseBuf);
@@ -194,5 +193,10 @@ int main(int argc, char **argv) {
          (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");
+
+
+
+    // Free pointers created via constructTCPObject
+    free(tcpObject);
   }
 }
