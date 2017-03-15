@@ -87,11 +87,11 @@ char *constructTCPObject(char *tcpHeader, char *data)
     tcpObject[objContinuedIndex] = data[i]; 
   }
 
-  printf("The TCP object: each number represents a byte\n----tcpObject[0] to tcpObject[tcpObjectLength - 1]----\n");
-  for (i = 0; i < tcpObjectLength; i++) {
-      printf("%x ", tcpObject[i] & 0xFF);  // mask out upper bits when C automatically converts char to int in vararg functions
-  }
-  printf("\n--------\n");
+  // printf("The TCP object: each number represents a byte\n----tcpObject[0] to tcpObject[tcpObjectLength - 1]----\n");
+  // for (i = 0; i < tcpObjectLength; i++) {
+  //     printf("%x ", tcpObject[i] & 0xFF);  // mask out upper bits when C automatically converts char to int in vararg functions
+  // }
+  // printf("\n--------\n");
   return tcpObject;
 }
 
@@ -197,18 +197,18 @@ char* deserialize_int16(char *buffer, uint16_t *value) {
     
     uint16_t res = 0, temp = 0;
     temp = buffer[1];
-    printf("temp = buffer[1] = %x\n", temp);
+    // printf("temp = buffer[1] = %x\n", temp);
     temp = (temp << 8) & 0xFF00;
-    printf("temp << 8 = %x\n", temp);
+    // printf("temp << 8 = %x\n", temp);
     res |= temp;
-    printf("res = %x\n", res);
+    // printf("res = %x\n", res);
 
     temp = 0;
     temp = buffer[0] & 0x00FF;
     // BUG: should be "0000 0000 1101 0011", actually "1111 1111 1101 0011"
-    printf("temp = buffer[0] = %x\n", temp);
+    // printf("temp = buffer[0] = %x\n", temp);
     res |= temp;
-    printf("res = %x\n", res);
+    // printf("res = %x\n", res);
     
     *value = res;
     return buffer + 2;
@@ -220,9 +220,9 @@ char* deserialize_struct_data(char *buffer, struct TCPHeader *value) {
     */
     char* buffer_incr = buffer;
 
-    printf("----deserializing src_port: ...\n");
+    // printf("----deserializing src_port: ...\n");
     buffer_incr = deserialize_int16(buffer_incr, &value->src_port);
-    printf("----deserializing src_port done.\n");
+    // printf("----deserializing src_port done.\n");
     buffer_incr = deserialize_int16(buffer_incr, &value->dst_port);
     buffer_incr = deserialize_int32(buffer_incr, &value->seq_num);
     buffer_incr = deserialize_int32(buffer_incr, &value->ack_num);

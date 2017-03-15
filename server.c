@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
   int n; /* message byte size */
   FILE * file; /* file that is requested from client */
   struct TCPHeader header; /* struct that holds tcp header info */
-  struct TCPHeader hearder_rec;
+  struct TCPHeader header_rec;
   char headerBuf[HEADERSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
   char *tcpObject;
@@ -122,9 +122,9 @@ int main(int argc, char **argv) {
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
-    printf("server received datagram from %s (%s)\n", 
-	   hostp->h_name, hostaddrp);
-    printf("server received %d/%d bytes: %s\n", (int) strlen(buf), n, buf);
+    // printf("server received datagram from %s (%s)\n", 
+	   // hostp->h_name, hostaddrp);
+    // printf("server received %d/%d bytes: %s\n", (int) strlen(buf), n, buf);
     
     char responseBuf[BUFSIZE];
 
@@ -136,12 +136,14 @@ int main(int argc, char **argv) {
     }
     
     // Deserialize data 
-    deserialize_struct_data(headerBuf, &hearder_rec);
+    deserialize_struct_data(headerBuf, &header_rec);
 
     // Point data buf to location where data begins
     dataBuf = buf + HEADERSIZE;
 
-    if (/*!syn &&*/ is_syn_bit_set(&hearder_rec))
+    printf("Receiving packet %d\n", header_rec.seq_num);
+
+    if (/*!syn &&*/ is_syn_bit_set(&header_rec))
     {
       header.src_port = portno;
       header.dst_port = portno;
@@ -156,10 +158,16 @@ int main(int argc, char **argv) {
       set_ack_bit(&header);
       set_syn_bit(&header);
 
-      printf("Sending packet ... ... SYN\n");
+      printf("Sending packet %d %d SYN\n", seq_num, WINDOWSIZE);
     }
-    else 
+    // If client sends ack (after syn)
+    else if (is_ack_bit_set(&header_rec))
     {
+      // Just skip to next iteration, do not need to send anything
+      // bzero((struct TCPHeader *) &header_rec, sizeof(struct TCPHeader));
+      continue;
+    }
+    else {
       // Attempt to open requested file in buf
       replaceNewlineWithTerminator(dataBuf);
       file = fopen(dataBuf, "r");
@@ -175,7 +183,7 @@ int main(int argc, char **argv) {
           sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", dataBuf);
       }
       
-      printf("Server response: %s\n", responseBuf);
+      // printf("Server response: %s\n", responseBuf);
 
       header.src_port = portno;
       header.dst_port = 2;
@@ -186,6 +194,9 @@ int main(int argc, char **argv) {
       header.checksum = 7;
       header.urgent_pointer = 8;
       header.options = 9;
+
+      printf("Sending packet ACK for file transfer %d %d\n", seq_num, WINDOWSIZE);
+
     }
 
     
@@ -207,7 +218,7 @@ int main(int argc, char **argv) {
     // set_ack_bit(&header);
     // printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
 
-    printTCPHeaderStruct(&header);
+    //printTCPHeaderStruct(&header);
 
     serializationPtr = serialize_struct_data(headerBuf, &header);
 

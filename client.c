@@ -26,6 +26,8 @@ int main(int argc, char **argv) {
     char *serializationPtr; /* location after serialization of struct */
     char *tcpObject;
     int syn = 0;
+    int three_way_hs_ack = 0;
+    int file_requested = 0;
     int seq_num = 0;
     int ack_num = 0;
     
@@ -64,23 +66,45 @@ int main(int argc, char **argv) {
     
     while(1) 
     {
+        memset(&tcp_header_send, 0, sizeof(struct TCPHeader));
+        memset(&tcp_header_receive, 0, sizeof(struct TCPHeader));
+
         // Send syn packet if we haven't already
         if (!syn)
         {
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 3;
-            tcp_header_send.ack_num  = 4;
+            tcp_header_send.seq_num  = 0;
+            tcp_header_send.ack_num  = 0;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-            tcp_header_send.window = 6;
-            tcp_header_send.checksum = 7;
-            tcp_header_send.urgent_pointer = 8;
-            tcp_header_send.options = 9;
+            tcp_header_send.window = WINDOWSIZE;
+            tcp_header_send.checksum = 0;
+            tcp_header_send.urgent_pointer = 0;
+            tcp_header_send.options = 0;
 
             set_syn_bit(&tcp_header_send);
             printf("Sending packet SYN\n");
         }
-        else 
+        else if (!three_way_hs_ack)
+        {
+            tcp_header_send.src_port = portno;
+            tcp_header_send.dst_port = portno;
+            tcp_header_send.seq_num  = 1;
+            tcp_header_send.ack_num  = 1;
+            tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+            tcp_header_send.window = WINDOWSIZE;
+            tcp_header_send.checksum = 0;
+            tcp_header_send.urgent_pointer = 0;
+            tcp_header_send.options = 0;
+
+            set_ack_bit(&tcp_header_send);
+            printf("Sending packet 1 (three way handshake complete)\n");
+            three_way_hs_ack = 1;
+
+            // Do not expect to receive more data after this, continue to next iteration
+            continue;
+        }
+        else if (!file_requested)
         {
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
@@ -95,11 +119,28 @@ int main(int argc, char **argv) {
             bzero(buf, BUFSIZE);
             printf("File to request from server: ");
             fgets(buf, BUFSIZE, stdin);
+
+            file_requested = 1;
+            printf("Sending packet file requested\n");
+
             
+        }
+        else 
+        {
+            tcp_header_send.src_port = portno;
+            tcp_header_send.dst_port = portno;
+            tcp_header_send.seq_num  = 11;
+            tcp_header_send.ack_num  = 0;
+            tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+            tcp_header_send.window = 0;
+            tcp_header_send.checksum = 0;
+            tcp_header_send.urgent_pointer = 0;
+
+            printf("Sending packet file requested CONT\n");
         }
 
         // Serialize struct into character string
-        printTCPHeaderStruct(&tcp_header_send);
+        //printTCPHeaderStruct(&tcp_header_send);
 
         serializationPtr = serialize_struct_data(headerBuf, &tcp_header_send);
 
@@ -130,22 +171,27 @@ int main(int argc, char **argv) {
         // Point data buf to location where data begins
         dataBuf = buf + HEADERSIZE;
 
-        printf("The received buffer (TCP header part): each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
-        for (i = 0; i < HEADERSIZE; i++) {
-           printf("%x ", headerBuf[i] & 0xFF);
-        }
-        printf("\n--------\n");
+        // printf("The received buffer (TCP header part): each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
+        // for (i = 0; i < HEADERSIZE; i++) {
+        //    printf("%x ", headerBuf[i] & 0xFF);
+        // }
+        // printf("\n--------\n");
 
-        printf("The data sent was: %s", dataBuf);
+        // printf("The data sent was: %s", dataBuf);
 
     	deserialize_struct_data(headerBuf, &tcp_header_receive);
     	
-        printTCPHeaderStruct(&tcp_header_receive);
+        printf("Receiving packet %d\n", tcp_header_receive.seq_num);
+
+        // printTCPHeaderStruct(&tcp_header_receive);
 
         if (!syn && is_syn_bit_set(&tcp_header_receive) && is_ack_bit_set(&tcp_header_receive))
         {
-            printf("*** Server SYN ACK response!\n");
+            // printf("*** Server SYN ACK response! ***\n");
             syn = 1;
+
+            // Need to send 1 more ack to finalize three way handshake.
+            three_way_hs_ack = 0;
         }
 
 
