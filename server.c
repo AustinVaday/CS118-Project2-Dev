@@ -33,6 +33,11 @@ void printBufHex(char *buf) {
   printf("\n");
 }
 
+// void readFileIntoBuffer(char *fileBuffer, FILE *file, int maxSize, int offset)
+// {
+//   fread(fileBuffer, PAYLOADSIZE, 1, file);
+// }
+
 int main(int argc, char **argv) {
   int sockfd; /* socket */
   int portno; /* port to listen on */
@@ -51,11 +56,32 @@ int main(int argc, char **argv) {
   char *serializationPtr; /* location after serialization of struct */
   char *tcpObject;
   char *dataBuf;
+  // char fileBuffer[PAYLOADSIZE];
+  char responseBuf[PAYLOADSIZE];
+  int responseBufSize = 0;
   int syn = 0;
   int seq_num = 0;
   int ack_num = 0;
 
   memset(headerBuf, 0, HEADERSIZE);
+
+//   file = fopen("server.c", "rb");
+  
+//   while (fread(fileBuffer, PAYLOADSIZE, 1, file) > 0)
+//   {
+//     for (int i = 0; i < PAYLOADSIZE; i++)
+//     {
+//       printf("%c", fileBuffer[i]);
+//     }
+//     printf("BRUH**************************\n");
+//     memset(fileBuffer, 0, PAYLOADSIZE);
+//   }
+
+// for (int i = 0; i < PAYLOADSIZE; i++)
+//     {
+//       printf("%c", fileBuffer[i]);
+//     }
+//     printf("BRUH**************************\n");
 
   /* 
    * check command line arguments 
@@ -126,8 +152,6 @@ int main(int argc, char **argv) {
 	   // hostp->h_name, hostaddrp);
     // printf("server received %d/%d bytes: %s\n", (int) strlen(buf), n, buf);
     
-    char responseBuf[BUFSIZE];
-
     // Parse tcp object buf into corresponding header and data buffers
     // Store header byte stream into header buff
     int i;
@@ -170,17 +194,32 @@ int main(int argc, char **argv) {
     else {
       // Attempt to open requested file in buf
       replaceNewlineWithTerminator(dataBuf);
-      file = fopen(dataBuf, "r");
+      file = fopen(dataBuf, "rb");
       
+      // while (fread(fileBuffer, maxSize, 1, file) > 0)
+      // {
+      //   for (int i = 0; i < maxSize; i++)
+      //   {
+      //     printf("%c", fileBuffer[i]);
+      //   }
+      //   printf("\n");
+      // }
+
       // Check if file resides on system
       if (file)
       {
-          sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", dataBuf);
-          fclose(file);
+          // sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", dataBuf);
+
+          // Read payload bytes into buffer
+          memset(responseBuf, 0, PAYLOADSIZE);
+          responseBufSize = fread(responseBuf, PAYLOADSIZE, 1, file);
+
+          // fclose(file);
       }
       else 
       {
           sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", dataBuf);
+          responseBufSize = strlen(responseBuf);
       }
       
       // printf("Server response: %s\n", responseBuf);
@@ -224,7 +263,7 @@ int main(int argc, char **argv) {
 
     // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
     // Allocate enough space for header + response
-    int tcpObjectLength = HEADERSIZE + strlen(responseBuf);
+    int tcpObjectLength = HEADERSIZE + responseBufSize;
     tcpObject = constructTCPObject(headerBuf, responseBuf);
 
 

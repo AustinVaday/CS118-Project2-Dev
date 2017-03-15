@@ -14,6 +14,9 @@
 #define HEADERSIZE 24
 #define BUFSIZE 1024
 #define WINDOWSIZE 5120
+// Note: Below payload size does not account for UDP header
+#define PAYLOADSIZE 1000 // Max packet length (1024) - TCP header size (24)
+#define RETRANSMISSIONTIME 500
 /*
 
     0                   1                   2                   3   
