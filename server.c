@@ -192,27 +192,34 @@ int main(int argc, char **argv) {
       continue;
     }
     else {
-      // Attempt to open requested file in buf
-      replaceNewlineWithTerminator(dataBuf);
-      file = fopen(dataBuf, "rb");
-      
-      // while (fread(fileBuffer, maxSize, 1, file) > 0)
-      // {
-      //   for (int i = 0; i < maxSize; i++)
-      //   {
-      //     printf("%c", fileBuffer[i]);
-      //   }
-      //   printf("\n");
-      // }
+
+      if (!file)
+      {
+        // Attempt to open requested file in buf
+        replaceNewlineWithTerminator(dataBuf);
+        file = fopen(dataBuf, "rb");
+      }
 
       // Check if file resides on system
       if (file)
       {
-          // sprintf(responseBuf, "Awesome! We found file '%s' on our system.\n", dataBuf);
 
           // Read payload bytes into buffer
           memset(responseBuf, 0, PAYLOADSIZE);
-          responseBufSize = fread(responseBuf, PAYLOADSIZE, 1, file);
+          responseBufSize = fread(responseBuf, 1, PAYLOADSIZE, file);
+
+          printf("Response buf size is %d: ", responseBufSize);
+
+          for (int i = 0; i < responseBufSize; i++)
+          {
+            printf("%c", responseBuf[i]);
+          }
+
+          if (responseBufSize == 0)
+          {
+            exit(0);
+          }
+          // exit(0);
 
           // fclose(file);
       }
