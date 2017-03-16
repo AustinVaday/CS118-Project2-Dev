@@ -220,6 +220,7 @@ int main(int argc, char **argv) {
       numPacketsToSend = 1;
       printf("Sending packet %d %d SYN\n", seq_num, WINDOWSIZE);
 
+      memset(responseBuf[0], 0, sizeof(responseBuf[0]));
       sprintf(responseBuf[0], "");
       responseBufSizes[0] = strlen(responseBuf[0]);
     }
@@ -237,6 +238,7 @@ int main(int argc, char **argv) {
       }
       else 
       {
+        printf("Setting window element %d as ACKED\n", windowIndex);
         window[windowIndex].acked = 1;
         window[windowIndex].valid = 0;
       }
@@ -244,8 +246,9 @@ int main(int argc, char **argv) {
 
       // Just skip to next iteration, do not need to send anything
       // bzero((struct TCPHeader *) &header_rec, sizeof(struct TCPHeader));
-      // continue;
-    }else 
+      continue;
+    }
+    else 
     {
       if (!file)
       {
@@ -276,6 +279,8 @@ int main(int argc, char **argv) {
               break;
             }
           }
+
+
 
           numPacketsToSend = availableSlots;
 

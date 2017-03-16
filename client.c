@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
             three_way_hs_ack = 1;
 
             // Do not expect to receive more data after this, continue to next iteration
-            // continue;
+            continue;
         }
         else if (!file_requested)
         {
