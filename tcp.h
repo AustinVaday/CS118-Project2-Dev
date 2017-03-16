@@ -63,19 +63,28 @@ struct TCPHeader {
 struct WindowPacket
 {
   char *tcpObject;
+  int tcpObjectLength;
   time_t transmissionTime;
   int valid;
+  int acked;
 };
 
 // replace index at target with value
 void replace(struct WindowPacket* window, int targetIndex, int valueIndex)
 {
-	window[targetIndex].tcpObject = window[valueIndex].tcpObject;
-	window[targetIndex].transmissionTime = window[valueIndex].transmissionTime;
-	window[targetIndex].valid = window[valueIndex].valid;
+	int isValueIndexValid = window[valueIndex].valid;
 
 	// Ensure to invalidate shifted index value
+	// Set this immediately to help limit possible race conditions
 	window[valueIndex].valid = 0; 
+
+	window[targetIndex].tcpObject = window[valueIndex].tcpObject;
+	window[targetIndex].tcpObjectLength = window[valueIndex].tcpObjectLength;
+	window[targetIndex].transmissionTime = window[valueIndex].transmissionTime;
+	window[targetIndex].valid = isValueIndexValid;
+	window[targetIndex].acked = window[valueIndex].acked;
+
+
 }
 
 // Shifts TCP Window frames to right (i.e. left-most packets get dropped)

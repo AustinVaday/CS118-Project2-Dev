@@ -5,6 +5,7 @@
 #include "tcp.h"
 
 struct WindowPacket window[5];
+// int windowMinPacketByte = 0;
 int done = 0;
 /*
  * error - wrapper for perror
@@ -19,7 +20,7 @@ void error(char *msg) {
 void replaceNewlineWithTerminator(char *buf) {
   if(buf[strlen(buf) - 1] == '\n')
   {
-          buf[strlen(buf) - 1] = '\0';
+    buf[strlen(buf) - 1] = '\0';
   }
 }
 
@@ -95,6 +96,7 @@ int main(int argc, char **argv) {
   int seq_num = 0;
   int ack_num = 0;
   pthread_t threadId;
+  int numPacketsToSend;
 
   // Allocate proper memory
   // window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
@@ -108,6 +110,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
   {
     window[i].valid = 0;
+    window[i].acked = 0;
   }
 
   memset(headerBuf, 0, HEADERSIZE);
@@ -161,7 +164,6 @@ int main(int argc, char **argv) {
   pthread_create(&threadId, NULL, &threadFunction, NULL);
 
   while (1) {
-
     /*
      * recvfrom: receive a UDP datagram from a client
      */
@@ -215,6 +217,7 @@ int main(int argc, char **argv) {
       set_ack_bit(&header);
       set_syn_bit(&header);
 
+      numPacketsToSend = 1;
       printf("Sending packet %d %d SYN\n", seq_num, WINDOWSIZE);
     }
     // If client sends ack (after syn)
@@ -236,6 +239,11 @@ int main(int argc, char **argv) {
       // Check if file resides on system
       if (file)
       {
+
+          // Check how many packets we want to send so we can organize reads 
+          // accordingly
+          numPacketsToSend = (WINDOWSIZE / PAYLOADSIZE);
+
 
           // Read payload bytes into buffer
           memset(responseBuf, 0, PAYLOADSIZE);
@@ -292,23 +300,55 @@ int main(int argc, char **argv) {
 
     }
 
-    serializationPtr = serialize_struct_data(headerBuf, &header);
 
-    // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
-    // Allocate enough space for header + response
-    int tcpObjectLength = HEADERSIZE + responseBufSize;
-    tcpObject = constructTCPObject(headerBuf, responseBuf);
+    // Compute number of packets to send out 
+    if (!file || is_syn_bit_set(&header_rec) || is_ack_bit_set(&header_rec))
+    {
+      numPacketsToSend = 1;
+    }
+    else 
+    {
+      // Move window sizes as necessary (i.e. if packet gets acked move window 
+      // to right by 1)
+      // If initial phase, 
+      int availableSlots;
+      for (availableSlots = 0; availableSlots < WINDOWSIZE / PACKETSIZE; availableSlots++)
+      {
+        // If first packet is acked already, move to right by 1
+        if (window[0].acked)
+        {
+          shiftWindowRightN(window, WINDOWSIZE, 1);
+        }
+        else {
+          break;
+        }
+      }
 
+      numPacketsToSend = availableSlots;
+    }
 
-    // n = sendto(sockfd, headerBuf, serializationPtr - headerBuf, 0, 
-    //      (struct sockaddr *) &clientaddr, clientlen);
-    n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
-         (struct sockaddr *) &clientaddr, clientlen);
-    if (n < 0) 
-      error("ERROR in sendto");
+    for (int i = 0; i < numPacketsToSend; i++)
+    {
+      serializationPtr = serialize_struct_data(headerBuf, &header);
 
-    // Free pointers created via constructTCPObject
-    free(tcpObject);
+      // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
+      // Allocate enough space for header + response
+      int tcpObjectLength = HEADERSIZE + responseBufSize;
+      tcpObject = constructTCPObject(headerBuf, responseBuf);
+
+      window[i].tcpObject = tcpObject;
+      window[i].tcpObjectLength = tcpObjectLength;
+      window[i].valid = 1;
+      window[i].transmissionTime = time(NULL);
+
+      n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
+           (struct sockaddr *) &clientaddr, clientlen);
+      if (n < 0) 
+        error("ERROR in sendto");
+
+      // // Free pointers created via constructTCPObject
+      // free(tcpObject);
+    }
 
   }
 
