@@ -83,15 +83,15 @@ int main(int argc, char **argv) {
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
   FILE * file; /* file that is requested from client */
-  struct TCPHeader header; /* struct that holds tcp header info */
+  struct TCPHeader headers[WINDOWSIZE / PAYLOADSIZE]; /* struct that holds tcp header info */
   struct TCPHeader header_rec;
   char headerBuf[HEADERSIZE]; /* tcp header buffer */
   char *serializationPtr; /* location after serialization of struct */
   char *tcpObject;
   char *dataBuf;
   // char fileBuffer[PAYLOADSIZE];
-  char responseBuf[PAYLOADSIZE];
-  int responseBufSize = 0;
+  char responseBuf[WINDOWSIZE / PAYLOADSIZE][PAYLOADSIZE];
+  int responseBufSizes[WINDOWSIZE / PAYLOADSIZE];
   int syn = 0;
   int seq_num = 0;
   int ack_num = 0;
@@ -201,34 +201,52 @@ int main(int argc, char **argv) {
     dataBuf = buf + HEADERSIZE;
 
     printf("Receiving packet %d\n", header_rec.seq_num);
-
+// printf("Hex val for ofc:%x\n", header_rec.offset_reserved_ctrl);
     if (/*!syn &&*/ is_syn_bit_set(&header_rec))
     {
-      header.src_port = portno;
-      header.dst_port = portno;
-      header.seq_num  = seq_num;
-      header.ack_num  = ack_num++;
-      header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-      header.window = WINDOWSIZE;
-      header.checksum = 0;
-      header.urgent_pointer = 0;
-      header.data_size = 0;
+      headers[0].src_port = portno;
+      headers[0].dst_port = portno;
+      headers[0].seq_num  = seq_num;
+      headers[0].ack_num  = ack_num++;
+      headers[0].offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+      headers[0].window = WINDOWSIZE;
+      headers[0].checksum = 0;
+      headers[0].urgent_pointer = 0;
+      headers[0].data_size = 0;
 
-      set_ack_bit(&header);
-      set_syn_bit(&header);
+      set_ack_bit(&headers[0]);
+      set_syn_bit(&headers[0]);
 
       numPacketsToSend = 1;
       printf("Sending packet %d %d SYN\n", seq_num, WINDOWSIZE);
+
+      sprintf(responseBuf[0], "");
+      responseBufSizes[0] = strlen(responseBuf[0]);
     }
     // If client sends ack (after syn)
     else if (is_ack_bit_set(&header_rec))
     {
+      printf("IS ACK BIT SET\n");
+      // Set window element as acked
+      int windowIndex = windowIndexWithSeqNum(window, WINDOWSIZE, header_rec.seq_num);
+
+      if (windowIndex < 0 )
+      {
+        // Most likely if already acked package
+        printf("Could not find window with sequence number provided. Ignoring and moving on.\n");
+      }
+      else 
+      {
+        window[windowIndex].acked = 1;
+        window[windowIndex].valid = 0;
+      }
+
+
       // Just skip to next iteration, do not need to send anything
       // bzero((struct TCPHeader *) &header_rec, sizeof(struct TCPHeader));
-      continue;
-    }
-    else {
-
+      // continue;
+    }else 
+    {
       if (!file)
       {
         // Attempt to open requested file in buf
@@ -239,36 +257,49 @@ int main(int argc, char **argv) {
       // Check if file resides on system
       if (file)
       {
+          printf("File exists!\n");
 
-          // Check how many packets we want to send so we can organize reads 
-          // accordingly
-          numPacketsToSend = (WINDOWSIZE / PAYLOADSIZE);
-
-
-          // Read payload bytes into buffer
-          memset(responseBuf, 0, PAYLOADSIZE);
-          responseBufSize = fread(responseBuf, 1, PAYLOADSIZE, file);
-
-          // printf("Response buf size is %d: ", responseBufSize);
-
-          // for (int i = 0; i < responseBufSize; i++)
-          // {
-          //   printf("%c", responseBuf[i]);
-          // }
-
-          // File has finished sending.. do something other than exit
-          if (responseBufSize == 0)
+          printWindow(window, WINDOWSIZE / PACKETSIZE);
+          // Move window sizes as necessary (i.e. if packet gets acked move window 
+          // to right by 1)
+          // If initial setup, available slots should be max: WINDOWSIZE / PACKETSIZE. 
+          int availableSlots;
+          for (availableSlots = 0; availableSlots < WINDOWSIZE / PACKETSIZE; availableSlots++)
           {
-            exit(0);
+            // If first packet is acked already, move to right by 1
+            if (window[0].acked)
+            {
+              printf("SHIFTED\n");
+              shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
+            }
+            else {
+              break;
+            }
           }
+
+          numPacketsToSend = availableSlots;
+
+          for (int i = 0; i < numPacketsToSend; i++)
+          {
+              // Read payload bytes into buffer
+              memset(responseBuf[i], 0, PAYLOADSIZE);
+              responseBufSizes[i] = fread(responseBuf[i], 1, PAYLOADSIZE, file);
+
+              // File has finished sending.. do something other than exit
+              if (responseBufSizes[i] == 0)
+              {
+                exit(0);
+              }
+          }
+
           // exit(0);
 
           // fclose(file);
       }
       else 
       {
-          sprintf(responseBuf, "Sorry, could not find file '%s' on our system.\n", dataBuf);
-          responseBufSize = strlen(responseBuf);
+          sprintf(responseBuf[0], "Sorry, could not find file '%s' on our system.\n", dataBuf);
+          responseBufSizes[0] = strlen(responseBuf[0]);
       }
       
       // printf("Server response: %s\n", responseBuf);
@@ -286,59 +317,50 @@ int main(int argc, char **argv) {
         // ack_num = ack_num + header_rec.ack_num + HEADERSIZE;
       }
 
-      header.src_port = portno;
-      header.dst_port = portno;
-      header.seq_num  = seq_num;
-      header.ack_num  = ack_num;
-      header.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-      header.window = 0;
-      header.checksum = 0;
-      header.urgent_pointer = 0;
-      header.data_size = responseBufSize;
-
-      printf("Sending packet %d %d\n", seq_num, WINDOWSIZE);
-
-    }
-
-
-    // Compute number of packets to send out 
-    if (!file || is_syn_bit_set(&header_rec) || is_ack_bit_set(&header_rec))
-    {
-      numPacketsToSend = 1;
-    }
-    else 
-    {
-      // Move window sizes as necessary (i.e. if packet gets acked move window 
-      // to right by 1)
-      // If initial phase, 
-      int availableSlots;
-      for (availableSlots = 0; availableSlots < WINDOWSIZE / PACKETSIZE; availableSlots++)
+      for (int i = 0; i < numPacketsToSend; i ++)
       {
-        // If first packet is acked already, move to right by 1
-        if (window[0].acked)
-        {
-          shiftWindowRightN(window, WINDOWSIZE, 1);
-        }
-        else {
-          break;
-        }
+        headers[i].src_port = portno;
+        headers[i].dst_port = portno;
+        headers[i].seq_num  = seq_num;
+        headers[i].ack_num  = ack_num;
+        headers[i].offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+        headers[i].window = 0;
+        headers[i].checksum = 0;
+        headers[i].urgent_pointer = 0;
+        headers[i].data_size = responseBufSizes[i];
+        printf("Sending packet %d %d\n", seq_num, WINDOWSIZE);
+
       }
 
-      numPacketsToSend = availableSlots;
     }
 
+
+    // // Compute number of packets to send out 
+    // if (!file || is_syn_bit_set(&header_rec) || is_ack_bit_set(&header_rec))
+    // {
+    //   numPacketsToSend = 1;
+    // }
+    // else 
+    // {
+
+    // }
+
+    printf("Num packets to send: %d\n", numPacketsToSend);
     for (int i = 0; i < numPacketsToSend; i++)
     {
-      serializationPtr = serialize_struct_data(headerBuf, &header);
+      serializationPtr = serialize_struct_data(headerBuf, &headers[i]);
 
       // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
       // Allocate enough space for header + response
-      int tcpObjectLength = HEADERSIZE + responseBufSize;
-      tcpObject = constructTCPObject(headerBuf, responseBuf);
+      int tcpObjectLength = HEADERSIZE + responseBufSizes[i];
+      printf("TCP Object length is: %d\n", tcpObjectLength);
+      tcpObject = constructTCPObject(headerBuf, responseBuf[i]);
 
       window[i].tcpObject = tcpObject;
       window[i].tcpObjectLength = tcpObjectLength;
       window[i].valid = 1;
+      window[i].acked = 0;
+      window[i].expectedSeqNum = headers[i].ack_num;
       window[i].transmissionTime = time(NULL);
 
       n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 

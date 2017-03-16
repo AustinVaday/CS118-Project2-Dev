@@ -130,10 +130,11 @@ int main(int argc, char **argv) {
 
             set_ack_bit(&tcp_header_send);
             printf("Sending packet 1 (three way handshake complete)\n");
+            // printf("Hex val for ofc:%x\n", tcp_header_send.offset_reserved_ctrl);
             three_way_hs_ack = 1;
 
             // Do not expect to receive more data after this, continue to next iteration
-            continue;
+            // continue;
         }
         else if (!file_requested)
         {

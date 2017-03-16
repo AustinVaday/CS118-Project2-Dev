@@ -67,6 +67,7 @@ struct WindowPacket
   time_t transmissionTime;
   int valid;
   int acked;
+  int expectedSeqNum;
 };
 
 // replace index at target with value
@@ -83,7 +84,9 @@ void replace(struct WindowPacket* window, int targetIndex, int valueIndex)
 	window[targetIndex].transmissionTime = window[valueIndex].transmissionTime;
 	window[targetIndex].valid = isValueIndexValid;
 	window[targetIndex].acked = window[valueIndex].acked;
+	window[targetIndex].expectedSeqNum = window[valueIndex].expectedSeqNum;
 
+	window[valueIndex].acked = 0;
 
 }
 
@@ -94,6 +97,39 @@ void shiftWindowRightN(struct WindowPacket* window, int windowSize, int n)
 	{
 		replace(window, i - n, i);
 	}
+}
+
+int windowIndexWithSeqNum(struct WindowPacket* window, int windowSize, int seq_num)
+{
+	for (int i = 0; i < windowSize; i++)
+	{
+		if (window[i].expectedSeqNum == seq_num)
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+void printWindow(struct WindowPacket *window, int windowSize)
+{
+	printf("Printing TCP WINDOW\n");
+	printf("--------------------------\n");
+	for (int i = 0; i < windowSize; i++)
+	{
+		printf("**************************\n");
+		printf("tcpObject -> (not printing this)\n");
+		printf("tcpObjectLength -> %d\n", window[i].tcpObjectLength);
+		printf("transmissionTime -> %ld\n", window[i].transmissionTime);
+		printf("valid -> %d\n", window[i].valid);
+		printf("acked -> %d\n", window[i].acked);
+		printf("expectedSeqNum -> %d\n", window[i].expectedSeqNum);
+		printf("**************************\n");
+
+	}
+	printf("--------------------------\n");
+
 }
 
 void printTCPHeaderStruct(struct TCPHeader *header)
