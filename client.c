@@ -4,6 +4,13 @@
  */
 
 #include "tcp.h"
+#include <signal.h>
+
+// Globals
+// Out file needs to be global so we can
+// safely close it in case user attempts to kill
+// program
+FILE *outputFile;
 
 /* 
  * error - wrapper for perror
@@ -13,6 +20,11 @@ void error(char *msg) {
     exit(0);
 }
 
+void ctrl_c_handler(int var)
+{
+    fclose(outputFile);
+    exit(0);
+}
 
 int main(int argc, char **argv) {
     int sockfd, portno, n;
@@ -31,6 +43,15 @@ int main(int argc, char **argv) {
     int seq_num = 0;
     int ack_num = 0;
     
+    signal(SIGINT, ctrl_c_handler);
+
+    /* open output file */
+    outputFile = fopen("received.data", "a");
+    if (outputFile == NULL)
+    {
+        error("Cannot open output file.\n");
+    }
+
     /* check command line arguments */
     if (argc != 3) {
        fprintf(stderr,"usage: %s <hostname> <port>\n", argv[0]);
@@ -80,7 +101,7 @@ int main(int argc, char **argv) {
             tcp_header_send.window = WINDOWSIZE;
             tcp_header_send.checksum = 0;
             tcp_header_send.urgent_pointer = 0;
-            tcp_header_send.options = 0;
+            tcp_header_send.data_size = 0;
 
             set_syn_bit(&tcp_header_send);
             printf("Sending packet SYN\n");
@@ -89,13 +110,13 @@ int main(int argc, char **argv) {
         {
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 1;
-            tcp_header_send.ack_num  = 1;
+            tcp_header_send.seq_num  = seq_num++;
+            tcp_header_send.ack_num  = ack_num++;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
             tcp_header_send.window = WINDOWSIZE;
             tcp_header_send.checksum = 0;
             tcp_header_send.urgent_pointer = 0;
-            tcp_header_send.options = 0;
+            tcp_header_send.data_size = 0;
 
             set_ack_bit(&tcp_header_send);
             printf("Sending packet 1 (three way handshake complete)\n");
@@ -108,8 +129,8 @@ int main(int argc, char **argv) {
         {
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 3;
-            tcp_header_send.ack_num  = 4;
+            tcp_header_send.seq_num  = seq_num;
+            tcp_header_send.ack_num  = ack_num;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
             tcp_header_send.window = 6;
             tcp_header_send.checksum = 7;
@@ -122,14 +143,13 @@ int main(int argc, char **argv) {
 
             file_requested = 1;
             printf("Sending packet file requested\n");
-
             
         }
         else 
         {
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 11;
+            tcp_header_send.seq_num  = seq_num;
             tcp_header_send.ack_num  = 0;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
             tcp_header_send.window = 0;
@@ -193,8 +213,18 @@ int main(int argc, char **argv) {
             // Need to send 1 more ack to finalize three way handshake.
             three_way_hs_ack = 0;
         }
-
+        // Write data from data buffer to local file
+        else if (tcp_header_receive.data_size != 0)
+        {
+            fwrite(dataBuf, 1, tcp_header_receive.data_size, outputFile);
+        }
+ 
+        memset(buf, 0, sizeof(buf));
+        memset(dataBuf, 0, sizeof(dataBuf));
 
         }
+
+        fclose(outputFile);
+
     return 0;
 }

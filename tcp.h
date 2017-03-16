@@ -34,7 +34,7 @@
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |           Checksum            |         Urgent Pointer        |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                    Options                    |    Padding    |
+   |                    data_size                    |    Padding    |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
    |                             data                              |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -53,7 +53,7 @@ struct TCPHeader {
   uint16_t window;
   uint16_t checksum;
   uint16_t urgent_pointer;
-  uint32_t options;
+  uint32_t data_size;
 };
 
 void printTCPHeaderStruct(struct TCPHeader *header)
@@ -68,7 +68,7 @@ void printTCPHeaderStruct(struct TCPHeader *header)
     printf("header->window = %d\n", header->window);
     printf("header->checksum = %d\n", header->checksum);
     printf("header->urgent_pointer = %d\n", header->urgent_pointer);
-    printf("header->options = %d\n", header->options);    
+    printf("header->data_size = %d\n", header->data_size);    
     printf("--------------------------\n");
 
 }
@@ -142,7 +142,7 @@ char * serialize_struct_data(char *buffer, struct TCPHeader *value)
     buffer_incr = serialize_int16(buffer_incr, value->window);
     buffer_incr = serialize_int16(buffer_incr, value->checksum);
     buffer_incr = serialize_int16(buffer_incr, value->urgent_pointer);
-    buffer_incr = serialize_int32(buffer_incr, value->options);
+    buffer_incr = serialize_int32(buffer_incr, value->data_size);
 
     return buffer_incr;
 }
@@ -233,7 +233,7 @@ char* deserialize_struct_data(char *buffer, struct TCPHeader *value) {
     buffer_incr = deserialize_int16(buffer_incr, &value->window);
     buffer_incr = deserialize_int16(buffer_incr, &value->checksum);
     buffer_incr = deserialize_int16(buffer_incr, &value->urgent_pointer);
-    buffer_incr = deserialize_int32(buffer_incr, &value->options);
+    buffer_incr = deserialize_int32(buffer_incr, &value->data_size);
 
     return buffer_incr;
 }

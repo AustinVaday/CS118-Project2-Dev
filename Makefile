@@ -11,4 +11,4 @@ dist: client.c server.c README Makefile report.pdf
 	tar -cvzf project1_104566193.tar.gz $^ 
 
 clean: client server 
-	rm -rf $^
+	rm -rf $^ received.data
