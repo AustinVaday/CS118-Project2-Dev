@@ -4,7 +4,8 @@
  */
 #include "tcp.h"
 
-
+struct WindowPacket *window;
+int done = 0;
 /*
  * error - wrapper for perror
  */
@@ -33,10 +34,41 @@ void printBufHex(char *buf) {
   printf("\n");
 }
 
-// void readFileIntoBuffer(char *fileBuffer, FILE *file, int maxSize, int offset)
-// {
-//   fread(fileBuffer, PAYLOADSIZE, 1, file);
-// }
+
+void retransmit(int index)
+{
+  printf("Retransmit packet %d in window...\n", index);
+}
+
+// Function to help us check the array of timers for each packet
+void *threadFunction(void * args)
+{
+  // Continuously check if a packet needs to be retransmitted
+  time_t currentTime;
+  
+  printf("Thread created.\n");
+  while (!done)
+  {
+    for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
+    {
+      currentTime = time(NULL);
+
+      if (!window[i].valid || window[i].tcpObject == NULL)
+      {
+        // If no packet, just skip and go to next iteration
+        continue;
+      }
+      // Retransmit if > 500MS
+      if ((currentTime - window[i].transmissionTime) <= 0.5)
+      {
+          retransmit(i);
+      }
+    }
+
+  }
+
+  return NULL;
+}
 
 int main(int argc, char **argv) {
   int sockfd; /* socket */
@@ -62,26 +94,23 @@ int main(int argc, char **argv) {
   int syn = 0;
   int seq_num = 0;
   int ack_num = 0;
+  pthread_t threadId;
+
+  // Allocate proper memory
+  window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
+
+  if (window == NULL)
+  {
+    error("Could not allocate memory for window ptr\n");
+  }
+
+  // Set all window values to invalid
+  for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
+  {
+    window[i].valid = 0;
+  }
 
   memset(headerBuf, 0, HEADERSIZE);
-
-//   file = fopen("server.c", "rb");
-  
-//   while (fread(fileBuffer, PAYLOADSIZE, 1, file) > 0)
-//   {
-//     for (int i = 0; i < PAYLOADSIZE; i++)
-//     {
-//       printf("%c", fileBuffer[i]);
-//     }
-//     printf("BRUH**************************\n");
-//     memset(fileBuffer, 0, PAYLOADSIZE);
-//   }
-
-// for (int i = 0; i < PAYLOADSIZE; i++)
-//     {
-//       printf("%c", fileBuffer[i]);
-//     }
-//     printf("BRUH**************************\n");
 
   /* 
    * check command line arguments 
@@ -127,6 +156,10 @@ int main(int argc, char **argv) {
    * main loop: wait for a datagram, then echo it
    */
   clientlen = sizeof(clientaddr);
+
+  // Create thread to help us detect necessary retransmissions based on timers
+  pthread_create(&threadId, NULL, &threadFunction, NULL);
+
   while (1) {
 
     /*
@@ -208,7 +241,7 @@ int main(int argc, char **argv) {
           memset(responseBuf, 0, PAYLOADSIZE);
           responseBufSize = fread(responseBuf, 1, PAYLOADSIZE, file);
 
-          printf("Response buf size is %d: ", responseBufSize);
+          // printf("Response buf size is %d: ", responseBufSize);
 
           // for (int i = 0; i < responseBufSize; i++)
           // {
@@ -239,6 +272,11 @@ int main(int argc, char **argv) {
           ack_num = 1 + strlen(dataBuf); 
           printf("Ack num is now: %d\n", ack_num);
       }
+      else 
+      {
+        // seq_num = header_rec.seq_numV;
+        // ack_num = ack_num + header_rec.ack_num + HEADERSIZE;
+      }
 
       header.src_port = portno;
       header.dst_port = portno;
@@ -250,30 +288,9 @@ int main(int argc, char **argv) {
       header.urgent_pointer = 0;
       header.data_size = responseBufSize;
 
-      printf("Sending packet ACK for file transfer %d %d\n", seq_num, WINDOWSIZE);
+      printf("Sending packet %d %d\n", seq_num, WINDOWSIZE);
 
     }
-
-    
-
-    /* 
-     * sendto: echo the input back to the client 
-     */
-    /* n = sendto(sockfd, responseBuf, strlen(responseBuf), 0,  */
-    /*      (struct sockaddr *) &clientaddr, clientlen); */
-    /* if (n < 0)  */
-    /*   error("ERROR in sendto"); */
-
-
-    // printf("Testing bit sets. Initial is: %x\n", header.offset_reserved_ctrl);
-    // set_fin_bit(&header);
-    // printf("After setting fin bit: %x\n", header.offset_reserved_ctrl);
-    // set_syn_bit(&header);
-    // printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
-    // set_ack_bit(&header);
-    // printf("After setting syn bit: %x\n", header.offset_reserved_ctrl);
-
-    //printTCPHeaderStruct(&header);
 
     serializationPtr = serialize_struct_data(headerBuf, &header);
 
@@ -292,5 +309,9 @@ int main(int argc, char **argv) {
 
     // Free pointers created via constructTCPObject
     free(tcpObject);
+
   }
+
+  free(window);
+  return 0;
 }

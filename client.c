@@ -11,6 +11,7 @@
 // safely close it in case user attempts to kill
 // program
 FILE *outputFile;
+struct WindowPacket *window;
 
 /* 
  * error - wrapper for perror
@@ -42,8 +43,17 @@ int main(int argc, char **argv) {
     int file_requested = 0;
     int seq_num = 0;
     int ack_num = 0;
+    int file_requested_size = 0;
     
     signal(SIGINT, ctrl_c_handler);
+
+    // Allocate proper memory
+    window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
+
+    if (window == NULL)
+    {
+        error("Could not allocate memory for window ptr\n");
+    }
 
     /* open output file */
     outputFile = fopen("received.data", "a");
@@ -142,7 +152,7 @@ int main(int argc, char **argv) {
             fgets(buf, BUFSIZE, stdin);
 
             file_requested = 1;
-            printf("Sending packet file requested\n");
+            file_requested_size = strlen(buf);
             
         }
         else 
@@ -191,14 +201,6 @@ int main(int argc, char **argv) {
         // Point data buf to location where data begins
         dataBuf = buf + HEADERSIZE;
 
-        // printf("The received buffer (TCP header part): each number represents a byte\n----headerBuf[0] to headerBuf[HEADERSIZE - 1]----\n");
-        // for (i = 0; i < HEADERSIZE; i++) {
-        //    printf("%x ", headerBuf[i] & 0xFF);
-        // }
-        // printf("\n--------\n");
-
-        // printf("The data sent was: %s", dataBuf);
-
     	deserialize_struct_data(headerBuf, &tcp_header_receive);
     	
         printf("Receiving packet %d\n", tcp_header_receive.seq_num);
@@ -218,6 +220,16 @@ int main(int argc, char **argv) {
         {
             fwrite(dataBuf, 1, tcp_header_receive.data_size, outputFile);
         }
+        
+        // If ack corresponds to our file request, do something
+        if (tcp_header_receive.ack_num == file_requested_size)
+        {
+            // printf("Received ACK 9 from server lol\n");
+
+        }
+
+        seq_num = ack_num;
+        ack_num = ack_num + tcp_header_receive.data_size + HEADERSIZE;
  
         memset(buf, 0, sizeof(buf));
         memset(dataBuf, 0, sizeof(dataBuf));
@@ -225,6 +237,6 @@ int main(int argc, char **argv) {
         }
 
         fclose(outputFile);
-
+        free (window);
     return 0;
 }

@@ -7,16 +7,19 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 // TCP Header Size total number of bits
 // We need to know the size of a TCP header
 // so that we can parse data sent over udp accordingly
 #define HEADERSIZE 24
 #define BUFSIZE 1024
+#define PACKETSIZE 1024
 #define WINDOWSIZE 5120
 // Note: Below payload size does not account for UDP header
 #define PAYLOADSIZE 1000 // Max packet length (1024) - TCP header size (24)
 #define RETRANSMISSIONTIME 500
+#define MAXSEQNUM 30720
 /*
 
     0                   1                   2                   3   
@@ -55,6 +58,34 @@ struct TCPHeader {
   uint16_t urgent_pointer;
   uint32_t data_size;
 };
+
+// Data structure stored in window array 
+struct WindowPacket
+{
+  char *tcpObject;
+  time_t transmissionTime;
+  int valid;
+};
+
+// replace index at target with value
+void replace(struct WindowPacket* window, int targetIndex, int valueIndex)
+{
+	window[targetIndex].tcpObject = window[valueIndex].tcpObject;
+	window[targetIndex].transmissionTime = window[valueIndex].transmissionTime;
+	window[targetIndex].valid = window[valueIndex].valid;
+
+	// Ensure to invalidate shifted index value
+	window[valueIndex].valid = 0; 
+}
+
+// Shifts TCP Window frames to right (i.e. left-most packets get dropped)
+void shiftWindowRightN(struct WindowPacket* window, int windowSize, int n)
+{
+	for (int i = n; i < windowSize; i++)
+	{
+		replace(window, i - n, i);
+	}
+}
 
 void printTCPHeaderStruct(struct TCPHeader *header)
 {
