@@ -4,7 +4,7 @@
  */
 #include "tcp.h"
 
-struct WindowPacket *window;
+struct WindowPacket window[5];
 int done = 0;
 /*
  * error - wrapper for perror
@@ -61,7 +61,7 @@ void *threadFunction(void * args)
       // Retransmit if > 500MS
       if ((currentTime - window[i].transmissionTime) <= 0.5)
       {
-          retransmit(i);
+          // retransmit(i);
       }
     }
 
@@ -97,12 +97,12 @@ int main(int argc, char **argv) {
   pthread_t threadId;
 
   // Allocate proper memory
-  window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
+  // window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
 
-  if (window == NULL)
-  {
-    error("Could not allocate memory for window ptr\n");
-  }
+  // if (window == NULL)
+  // {
+  //   error("Could not allocate memory for window ptr\n");
+  // }
 
   // Set all window values to invalid
   for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
@@ -312,6 +312,6 @@ int main(int argc, char **argv) {
 
   }
 
-  free(window);
+  // free(window);
   return 0;
 }
