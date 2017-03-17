@@ -99,6 +99,7 @@ int main(int argc, char **argv) {
   int numPacketsToSend;
 
   int global_seq_num = 1;
+  int isProcessingACKs = 0;
 
   // Allocate proper memory
   // window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
@@ -249,7 +250,7 @@ int main(int argc, char **argv) {
       //   window[windowIndex].acked = 1;
       //   // window[windowIndex].valid = 0;
       // }
-      window[0].ack = 1;
+      window[0].acked = 1;
       shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
 
 
@@ -263,6 +264,9 @@ int main(int argc, char **argv) {
       // PROCESS ACKs from client for file requests
       if (is_ack_bit_set(&header_rec)) 
       {
+          // server starts to process ACKs for file transfer
+          isProcessingACKs = 1;
+
           // Find packet index in window
           int target_seq_num = header_rec.ack_num - header_rec.data_size;
           int index = windowIndexWithSeqNum(window, WINDOWSIZE/PACKETSIZE, target_seq_num);
@@ -278,8 +282,19 @@ int main(int argc, char **argv) {
           {
               shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
 
+              memset(responseBuf[0], 0, PAYLOADSIZE);
+              responseBufSizes[0] = fread(responseBuf[0], 1, PAYLOADSIZE, file);
 
 
+              // global_seq_num += responseBufSizes[0];
+
+              // File has finished sending.. do something other than exit
+              if (responseBufSizes[0] == 0)
+              {
+                exit(0);
+              }
+
+              numPacketsToSend = 1;
 
           }
 
@@ -287,11 +302,6 @@ int main(int argc, char **argv) {
 
          
       }
-
-
-
-
-
 
       printf("Inside else..\n");
       if (!file)
@@ -302,7 +312,7 @@ int main(int argc, char **argv) {
       }
 
       // Check if file resides on system
-      if (file)
+      if (file && (isProcessingACKs == 0))
       {
           printf("File exists!\n");
 
@@ -331,7 +341,8 @@ int main(int argc, char **argv) {
               // Read payload bytes into buffer
               memset(responseBuf[i], 0, PAYLOADSIZE);
               responseBufSizes[i] = fread(responseBuf[i], 1, PAYLOADSIZE, file);
-              
+
+              global_seq_num += responseBufSizes[i];
 
               // File has finished sending.. do something other than exit
               if (responseBufSizes[i] == 0)
@@ -344,7 +355,11 @@ int main(int argc, char **argv) {
 
           // fclose(file);
       }
-      else 
+      else if (file && (isProcessingACKs == 1))
+      {
+
+      }
+      else
       {
           sprintf(responseBuf[0], "Sorry, could not find file '%s' on our system.\n", dataBuf);
           responseBufSizes[0] = strlen(responseBuf[0]);
@@ -365,7 +380,7 @@ int main(int argc, char **argv) {
         // ack_num = ack_num + header_rec.ack_num + HEADERSIZE;
       }
 
-      for (int i = 0; i < numPacketsToSend; i ++)
+      for (int i = 0; i < numPacketsToSend; i++)
       {
         headers[i].src_port = portno;
         headers[i].dst_port = portno;
@@ -404,13 +419,29 @@ int main(int argc, char **argv) {
       printf("TCP Object length is: %d\n", tcpObjectLength);
       tcpObject = constructTCPObject(headerBuf, responseBuf[i]);
 
-      window[i].tcpObject = tcpObject;
-      window[i].tcpObjectLength = tcpObjectLength;
-      window[i].valid = 1;
-      window[i].acked = 0;
-      window[i].seqNum = headers[i].seq_num;
-      window[i].transmissionTime = time(NULL);
 
+      if (isProcessingACKs)
+      {
+          window[0].tcpObject = tcpObject;
+          window[0].tcpObjectLength = tcpObjectLength;
+          window[0].valid = 1;
+          window[0].acked = 0;
+          window[0].seqNum = global_seq_num;
+          window[0].transmissionTime = time(NULL);
+
+      }
+      else 
+      {
+          window[i].tcpObject = tcpObject;
+          window[i].tcpObjectLength = tcpObjectLength;
+          window[i].valid = 1;
+          window[i].acked = 0;
+          window[i].seqNum = headers[i].seq_num;
+          window[i].transmissionTime = time(NULL);
+
+      }
+
+      
       n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
            (struct sockaddr *) &clientaddr, clientlen);
       if (n < 0) 

@@ -124,7 +124,7 @@ void printWindow(struct WindowPacket *window, int windowSize)
 		printf("transmissionTime -> %ld\n", window[i].transmissionTime);
 		printf("valid -> %d\n", window[i].valid);
 		printf("acked -> %d\n", window[i].acked);
-		printf("expectedSeqNum -> %d\n", window[i].expectedSeqNum);
+		printf("seqNum -> %d\n", window[i].seqNum);
 		printf("**************************\n");
 
 	}
