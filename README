@@ -1,0 +1,3 @@
+CS 118 TCP Reliable Data Transfer Project
+Austin Vaday 104-566-193, Yingbo (Max) Wang 604-593-537
+Austin designed the packet header, implemented client-server connections & large file transmission without data loss & timeout retransmission. Max worked on the packet serialization & deserialization algorithms, and wrote report. Then we worked together on the design of packet buffers, packet buffer shifting and sequence & ACK numbers setup.
