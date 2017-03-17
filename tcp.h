@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <time.h>
 
 // TCP Header Size total number of bits
 // We need to know the size of a TCP header
@@ -20,6 +21,8 @@
 #define PAYLOADSIZE 1000 // Max packet length (1024) - TCP header size (24)
 #define RETRANSMISSIONTIME 500
 #define MAXSEQNUM 30720
+#define BILLION 1000000000L
+
 /*
 
     0                   1                   2                   3   
@@ -64,7 +67,7 @@ struct WindowPacket
 {
   char *tcpObject;
   int tcpObjectLength;
-  time_t transmissionTime;
+  struct timespec transmissionTime;
   int valid;
   int acked;
   int seqNum;
@@ -86,7 +89,7 @@ void replace(struct WindowPacket* window, int targetIndex, int valueIndex)
 	window[targetIndex].acked = window[valueIndex].acked;
 	window[targetIndex].seqNum = window[valueIndex].seqNum;
 
-  window[valueIndex].transmissionTime = time(NULL);
+  // window[valueIndex].transmissionTime = time(NULL);
 	window[valueIndex].acked = 0;
 
 }

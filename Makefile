@@ -7,8 +7,8 @@ client: client.c
 server:	server.c 
 	$(CC) -pthread -g -o $@ server.c
 
-dist: client.c server.c README Makefile report.pdf 
-	tar -cvzf project1_104566193.tar.gz $^ 
+dist: client.c server.c tcp.h README Makefile report.pdf 
+	tar -cvzf project2_104566193_604593537.tar.gz $^ 
 
 clean:
 	rm -rf client server received.data

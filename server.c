@@ -52,14 +52,16 @@ void retransmit(int index)
 void *threadFunction(void * args)
 {
   // Continuously check if a packet needs to be retransmitted
-  time_t currentTime;
+  struct timespec currentTime;
   
   while (!done)
   {
     for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
     {
-      currentTime = time(NULL);
+      clock_gettime(CLOCK_MONOTONIC, &currentTime);
 
+      printf("Current time: %ld\n", time(NULL));
+      sleep(2);
       if (!window[i].valid || window[i].tcpObject == NULL)
       {
         // If no packet, just skip and go to next iteration
@@ -67,8 +69,13 @@ void *threadFunction(void * args)
       }
 
       // Retransmit if > 500MS
-      double diff = difftime(window[i].transmissionTime,currentTime);
-      if (window[i].valid && !(window[i].acked) && ( diff > 0.5))
+      // double diff = difftime(window[i].transmissionTime,currentTime);
+      double diff_ns = BILLION * (currentTime.tv_sec - window[i].transmissionTime.tv_sec) + currentTime.tv_nsec + window[i].transmissionTime.tv_nsec;
+
+
+      printf("Dif is %f\n", diff_ns);
+      // printf("!(window[i].acked) is: %d\n", !(window[i].acked));
+      if (!(window[i].acked) && ( diff_ns > (0.5 * BILLION)))
       {          
           retransmit(i);
       }
@@ -404,7 +411,7 @@ int main(int argc, char **argv) {
           window[WINDOWSIZE / PACKETSIZE - 1].valid = 1;
           window[WINDOWSIZE / PACKETSIZE - 1].acked = 0;
           window[WINDOWSIZE / PACKETSIZE - 1].seqNum = seq_num;
-          window[WINDOWSIZE / PACKETSIZE - 1].transmissionTime = time(NULL);
+          clock_gettime(CLOCK_MONOTONIC, &(window[WINDOWSIZE / PACKETSIZE - 1].transmissionTime));
       }
       else 
       {
@@ -413,7 +420,7 @@ int main(int argc, char **argv) {
           window[i].valid = 1;
           window[i].acked = 0;
           window[i].seqNum = headers[i].seq_num;
-          window[i].transmissionTime = time(NULL);
+          clock_gettime(CLOCK_MONOTONIC, &(window[i].transmissionTime));
 
       }
       
