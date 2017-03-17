@@ -11,7 +11,7 @@
 // safely close it in case user attempts to kill
 // program
 FILE *outputFile;
-struct WindowPacket *window;
+struct WindowPacket window[5];
 
 /* 
  * error - wrapper for perror
@@ -47,15 +47,8 @@ int main(int argc, char **argv) {
     int ack_skip = 0;
     int send_packet = 0;
 
+
     signal(SIGINT, ctrl_c_handler);
-
-    // Allocate proper memory
-    window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
-
-    if (window == NULL)
-    {
-        error("Could not allocate memory for window ptr\n");
-    }
 
     /* open output file */
     outputFile = fopen("received.data", "a");
@@ -295,6 +288,5 @@ int main(int argc, char **argv) {
         }
 
         fclose(outputFile);
-        free (window);
     return 0;
 }

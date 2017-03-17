@@ -86,6 +86,7 @@ void replace(struct WindowPacket* window, int targetIndex, int valueIndex)
 	window[targetIndex].acked = window[valueIndex].acked;
 	window[targetIndex].seqNum = window[valueIndex].seqNum;
 
+  window[valueIndex].transmissionTime = time(NULL);
 	window[valueIndex].acked = 0;
 
 }

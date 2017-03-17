@@ -6,6 +6,10 @@
 
 struct WindowPacket window[5];
 int done = 0;
+int sockfd; /* socket */
+int clientlen; /* byte size of client's address */
+struct sockaddr_in clientaddr; /* client addr */
+
 /*
  * error - wrapper for perror
  */
@@ -37,7 +41,11 @@ void printBufHex(char *buf) {
 
 void retransmit(int index)
 {
-  printf("Retransmit packet %d in window...\n", index);
+  printf("Retransmit packet in window...\n");
+  // int n = sendto(sockfd, window[index].tcpObject, window[index].tcpObjectLength, 0, 
+  //          (struct sockaddr *) &clientaddr, clientlen);
+  // if (n < 0) 
+  //   error("ERROR in sendto REXMT");
 }
 
 // Function to help us check the array of timers for each packet
@@ -46,7 +54,6 @@ void *threadFunction(void * args)
   // Continuously check if a packet needs to be retransmitted
   time_t currentTime;
   
-  printf("Thread created.\n");
   while (!done)
   {
     for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
@@ -58,10 +65,12 @@ void *threadFunction(void * args)
         // If no packet, just skip and go to next iteration
         continue;
       }
+
       // Retransmit if > 500MS
-      if ((currentTime - window[i].transmissionTime) <= 0.5)
-      {
-          // retransmit(i);
+      double diff = difftime(window[i].transmissionTime,currentTime);
+      if (window[i].valid && !(window[i].acked) && ( diff > 0.5))
+      {          
+          retransmit(i);
       }
     }
 
@@ -71,11 +80,8 @@ void *threadFunction(void * args)
 }
 
 int main(int argc, char **argv) {
-  int sockfd; /* socket */
   int portno; /* port to listen on */
-  int clientlen; /* byte size of client's address */
   struct sockaddr_in serveraddr; /* server's addr */
-  struct sockaddr_in clientaddr; /* client addr */
   struct hostent *hostp; /* client host info */
   char buf[BUFSIZE]; /* message buf */
   char *hostaddrp; /* dotted decimal host addr string */
