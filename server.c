@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
   clientlen = sizeof(clientaddr);
 
   // Create thread to help us detect necessary retransmissions based on timers
-  // pthread_create(&threadId, NULL, &threadFunction, NULL);
+  pthread_create(&threadId, NULL, &threadFunction, NULL);
 
   while (1) {
     /*
@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
     // Point data buf to location where data begins
     dataBuf = buf + HEADERSIZE;
 
-    printf("Receiving packet %d\n", header_rec.seq_num);
+    printf("Receiving packet %d\n", header_rec.ack_num);
 
     if (/*!syn &&*/ is_syn_bit_set(&header_rec))
     {
@@ -244,30 +244,25 @@ int main(int argc, char **argv) {
     }
     else 
     {
-
-      printf("inside else.\n");
       // PROCESS ACKs from client for file requests
       if (is_ack_bit_set(&header_rec)) 
       {
           // server starts to process ACKs for file transfer
           isProcessingACKs = 1;
-          printf("%%%%%%PROCESSING ACKS TRIGGERED%%%%%%\n");
 
           // Find packet index in window
           int target_seq_num = header_rec.ack_num - header_rec.data_size;
-          printf("HEADER REC ACK NUM: %d\n", header_rec.ack_num);
-          printf("HEADER REC DATA SIZE: %d\n", header_rec.data_size);
 
           int index = windowIndexWithSeqNum(window, WINDOWSIZE/PACKETSIZE, target_seq_num);
           if (index < 0 )
           {
-            printf("Error getting window index for seq num %d\n", target_seq_num);
+            // printf("Error getting window index for seq num %d\n", target_seq_num);
             // do_not_send_packet = 1;
             continue;
             // exit(0);
           }
 
-          printf("ACK IS IN FOR WINDOW ELEM #%d\n", index);
+          // printf("ACK IS IN FOR WINDOW ELEM #%d\n", index);
 
           window[index].acked = 1;
 
@@ -295,14 +290,11 @@ int main(int argc, char **argv) {
               // File has finished sending.. do something other than exit
               if (responseBufSizes[0] == 0)
               {
-                // exit(0);
-                printf("No more data 2 read fam\n");
+                // printf("No more data 2 read fam\n");
                 numPacketsToSend = 0;
                 // continue;
                 exit(0);
               }
-
-
           }
          
       }
@@ -333,7 +325,6 @@ int main(int argc, char **argv) {
               // File has finished sending.. do something other than exit
               if (responseBufSizes[i] == 0)
               {
-                printf("Exiting in 'if (file && (isProcessingACKs == 0))'\n");
                 numPacketsToSend = i;
                 break;
               }
