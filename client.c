@@ -45,7 +45,8 @@ int main(int argc, char **argv) {
     int ack_num = 0;
     int file_requested_size = 0;
     int ack_skip = 0;
-    
+    int send_packet = 0;
+
     signal(SIGINT, ctrl_c_handler);
 
     // Allocate proper memory
@@ -104,10 +105,14 @@ int main(int argc, char **argv) {
         // Send syn packet if we haven't already
         if (!syn)
         {
+            send_packet = 1;
+            seq_num = 0;
+            ack_num = 0;
+
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 0;
-            tcp_header_send.ack_num  = 0;
+            tcp_header_send.seq_num  = seq_num;
+            tcp_header_send.ack_num  = ack_num;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
             tcp_header_send.window = WINDOWSIZE;
             tcp_header_send.checksum = 0;
@@ -119,10 +124,14 @@ int main(int argc, char **argv) {
         }
         else if (!three_way_hs_ack)
         {
+            send_packet = 1;
+            seq_num = 1;
+            ack_num = 1;
+
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 1;
-            tcp_header_send.ack_num  = 1;
+            tcp_header_send.seq_num  = seq_num;
+            tcp_header_send.ack_num  = ack_num;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
             tcp_header_send.window = WINDOWSIZE;
             tcp_header_send.checksum = 0;
@@ -141,14 +150,18 @@ int main(int argc, char **argv) {
         }
         else if (!file_requested)
         {
+            send_packet = 1;
+            seq_num = 1;
+            ack_num = ack_num;
+
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
             tcp_header_send.seq_num  = seq_num;
             tcp_header_send.ack_num  = ack_num;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-            tcp_header_send.window = 6;
-            tcp_header_send.checksum = 7;
-            tcp_header_send.urgent_pointer = 8;
+            tcp_header_send.window = 0;
+            tcp_header_send.checksum = 0;
+            tcp_header_send.urgent_pointer = 0;
 
             /* get a message from the user */
             bzero(buf, BUFSIZE);
@@ -161,34 +174,39 @@ int main(int argc, char **argv) {
         }
         else
         {
-            tcp_header_send.src_port = portno;
-            tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = 0;
-            tcp_header_send.ack_num  = tcp_header_receive.seq_num + tcp_header_receive.data_size;;
-            tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
-            tcp_header_send.window = 0;
-            tcp_header_send.checksum = 0;
-            tcp_header_send.urgent_pointer = 0;
+            // tcp_header_send.src_port = portno;
+            // tcp_header_send.dst_port = portno;
+            // tcp_header_send.seq_num  = 0;
+            // tcp_header_send.ack_num  = tcp_header_receive.seq_num + tcp_header_receive.data_size;;
+            // tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+            // tcp_header_send.window = 0;
+            // tcp_header_send.checksum = 0;
+            // tcp_header_send.urgent_pointer = 0;
+            // tcp_header_send.data_size = tcp_header_receive.data_size;
+            // set_ack_bit(&tcp_header_send);
 
-            printf("Sending packet file requested CONT\n");
+            // printf("Sending packet %d\n", tcp_header_send.ack_num);
         }
 
         // Serialize struct into character string
         //printTCPHeaderStruct(&tcp_header_send);
 
-        serializationPtr = serialize_struct_data(headerBuf, &tcp_header_send);
+        if (send_packet)
+        {
+            send_packet = 0;
+            serializationPtr = serialize_struct_data(headerBuf, &tcp_header_send);
 
-        // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
-        // Allocate enough space for header + response
-        int tcpObjectLength = HEADERSIZE + strlen(buf);
-        tcpObject = constructTCPObject(headerBuf, buf);
+            // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
+            // Allocate enough space for header + response
+            int tcpObjectLength = HEADERSIZE + strlen(buf);
+            tcpObject = constructTCPObject(headerBuf, buf);
 
-        /* send the message to the server */
-        serverlen = sizeof(serveraddr);
-        n = sendto(sockfd, tcpObject, tcpObjectLength, 0, &serveraddr, serverlen);
-        if (n < 0) 
-          error("ERROR in sendto");
-
+            /* send the message to the server */
+            serverlen = sizeof(serveraddr);
+            n = sendto(sockfd, tcpObject, tcpObjectLength, 0, &serveraddr, serverlen);
+            if (n < 0) 
+              error("ERROR in sendto");
+        }
 
         // After threeway handshake is complete, ask user for file to send
         if (ack_skip == 1)
@@ -231,6 +249,34 @@ int main(int argc, char **argv) {
         {
             fwrite(dataBuf, 1, tcp_header_receive.data_size, outputFile);
 
+            tcp_header_send.src_port = portno;
+            tcp_header_send.dst_port = portno;
+            tcp_header_send.seq_num  = 0;
+            tcp_header_send.ack_num  = tcp_header_receive.seq_num + tcp_header_receive.data_size;;
+            tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
+            tcp_header_send.window = 0;
+            tcp_header_send.checksum = 0;
+            tcp_header_send.urgent_pointer = 0;
+            tcp_header_send.data_size = tcp_header_receive.data_size;
+            set_ack_bit(&tcp_header_send);
+
+            printf("Sending packet %d\n", tcp_header_send.ack_num);
+
+            serializationPtr = serialize_struct_data(headerBuf, &tcp_header_send);
+
+            // Construct TCP object that consists of TCP header (headerBuf) + data (responseBuf)
+            // Allocate enough space for header + response
+            int tcpObjectLength = HEADERSIZE + strlen(buf);
+            tcpObject = constructTCPObject(headerBuf, buf);
+
+            /* send the message to the server */
+            serverlen = sizeof(serveraddr);
+            n = sendto(sockfd, tcpObject, tcpObjectLength, 0, &serveraddr, serverlen);
+            if (n < 0) 
+              error("ERROR in sendto");
+
+            free(tcpObject);
+
         }
         
         // If ack corresponds to our file request, do something
@@ -240,8 +286,8 @@ int main(int argc, char **argv) {
 
         }
 
-        seq_num = ack_num;
-        ack_num = ack_num + tcp_header_receive.data_size + HEADERSIZE;
+        // seq_num = ack_num;
+        // ack_num = ack_num + tcp_header_receive.data_size + HEADERSIZE;
  
         memset(buf, 0, sizeof(buf));
         memset(dataBuf, 0, sizeof(dataBuf));
