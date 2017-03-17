@@ -5,7 +5,6 @@
 #include "tcp.h"
 
 struct WindowPacket window[5];
-// int windowMinPacketByte = 0;
 int done = 0;
 /*
  * error - wrapper for perror
