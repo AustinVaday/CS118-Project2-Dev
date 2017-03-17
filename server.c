@@ -203,14 +203,9 @@ int main(int argc, char **argv) {
     dataBuf = buf + HEADERSIZE;
 
     printf("Receiving packet %d\n", header_rec.seq_num);
-// printf("Hex val for ofc:%x\n", header_rec.offset_reserved_ctrl);
-
-   printTCPHeaderStruct(&header_rec);
 
     if (/*!syn &&*/ is_syn_bit_set(&header_rec))
     {
-      printf("Inside syn_bit_set..\n");
-
       headers[0].src_port = portno;
       headers[0].dst_port = portno;
       headers[0].seq_num  = seq_num;
@@ -234,24 +229,13 @@ int main(int argc, char **argv) {
     // If client sends ack (after syn)
     else if (is_ack_bit_set(&header_rec) && header_rec.seq_num == 1 && header_rec.ack_num == 1)
     {
-      printf("IS ACK BIT SET\n");
-      // Set window element as acked
-      // int windowIndex = windowIndexWithSeqNum(window, WINDOWSIZE / PACKETSIZE, header_rec.seq_num);
 
-      // if (windowIndex < 0 )
-      // {
-      //   // Most likely if already acked package
-      //   printf("Could not find window with sequence number provided. Ignoring and moving on.\n");
-      // }
-      // else 
-      // {
-      //   printf("Setting window element %d as ACKED\n", windowIndex);
-      //   window[windowIndex].acked = 1;
-      //   // window[windowIndex].valid = 0;
-      // }
+      // printf("BEFORE WINDOW SHIFT IN is_ack_bit_set\n");
+      // printWindow(window, WINDOWSIZE / PACKETSIZE);
       window[0].acked = 1;
       shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
-
+      // printf("AFTER WINDOW SHIFT IN is_ack_bit_set\n");
+      // printWindow(window, WINDOWSIZE / PACKETSIZE);
 
       // Just skip to next iteration, do not need to send anything
       // bzero((struct TCPHeader *) &header_rec, sizeof(struct TCPHeader));
@@ -265,6 +249,7 @@ int main(int argc, char **argv) {
       {
           // server starts to process ACKs for file transfer
           isProcessingACKs = 1;
+          printf("%%%%%%PROCESSING ACKS TRIGGERED%%%%%%\n");
 
           // Find packet index in window
           int target_seq_num = header_rec.ack_num - header_rec.data_size;
@@ -296,13 +281,9 @@ int main(int argc, char **argv) {
               numPacketsToSend = 1;
 
           }
-
-
-
          
       }
 
-      printf("Inside else..\n");
       if (!file)
       {
         // Attempt to open requested file in buf
@@ -313,26 +294,10 @@ int main(int argc, char **argv) {
       // Check if file resides on system
       if (file && (isProcessingACKs == 0))
       {
-          printf("File exists!\n");
 
-          printWindow(window, WINDOWSIZE / PACKETSIZE);
-          // Move window sizes as necessary (i.e. if packet gets acked move window 
-          // to right by 1)
-          // If initial setup, available slots should be max: WINDOWSIZE / PACKETSIZE. 
-          // int availableSlots;
-          // for (availableSlots = 0; availableSlots < WINDOWSIZE / PACKETSIZE; availableSlots++)
-          // {
-          //   // If first packet is acked already, move to right by 1
-          //   if (window[0].acked)
-          //   {
-          //     printf("SHIFTED\n");
-          //     shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
-          //   }
-          //   else {
-          //     break;
-          //   }
-          // }
-
+          // printf("BEFORE WINDOW ADDITIONS in (file && (isProcessingACKs == 0)\n");
+          // printWindow(window, WINDOWSIZE / PACKETSIZE);
+         
           numPacketsToSend = 5;
 
           for (int i = 0; i < numPacketsToSend; i++)
@@ -346,13 +311,12 @@ int main(int argc, char **argv) {
               // File has finished sending.. do something other than exit
               if (responseBufSizes[i] == 0)
               {
-                exit(0);
+                printf("Exiting in 'if (file && (isProcessingACKs == 0))'\n");
+                numPacketsToSend = i;
+                break;
               }
           }
 
-          // exit(0);
-
-          // fclose(file);
       }
       else if (file && (isProcessingACKs == 1))
       {
@@ -396,17 +360,6 @@ int main(int argc, char **argv) {
 
     }
 
-
-    // // Compute number of packets to send out 
-    // if (!file || is_syn_bit_set(&header_rec) || is_ack_bit_set(&header_rec))
-    // {
-    //   numPacketsToSend = 1;
-    // }
-    // else 
-    // {
-
-    // }
-
     printf("Num packets to send: %d\n", numPacketsToSend);
     for (int i = 0; i < numPacketsToSend; i++)
     {
@@ -427,7 +380,6 @@ int main(int argc, char **argv) {
           window[0].acked = 0;
           window[0].seqNum = global_seq_num;
           window[0].transmissionTime = time(NULL);
-
       }
       else 
       {
@@ -439,7 +391,6 @@ int main(int argc, char **argv) {
           window[i].transmissionTime = time(NULL);
 
       }
-
       
       n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
            (struct sockaddr *) &clientaddr, clientlen);
@@ -449,6 +400,7 @@ int main(int argc, char **argv) {
       // // Free pointers created via constructTCPObject
       // free(tcpObject);
     }
+
 
   }
 
