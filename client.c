@@ -44,6 +44,7 @@ int main(int argc, char **argv) {
     int seq_num = 0;
     int ack_num = 0;
     int file_requested_size = 0;
+    int ack_skip = 0;
     
     signal(SIGINT, ctrl_c_handler);
 
@@ -120,8 +121,8 @@ int main(int argc, char **argv) {
         {
             tcp_header_send.src_port = portno;
             tcp_header_send.dst_port = portno;
-            tcp_header_send.seq_num  = seq_num++;
-            tcp_header_send.ack_num  = ack_num++;
+            tcp_header_send.seq_num  = 1;
+            tcp_header_send.ack_num  = 1;
             tcp_header_send.offset_reserved_ctrl = 0; // Merge data offset, reserved and control bits into one 16-bit val
             tcp_header_send.window = WINDOWSIZE;
             tcp_header_send.checksum = 0;
@@ -129,12 +130,15 @@ int main(int argc, char **argv) {
             tcp_header_send.data_size = 0;
 
             set_ack_bit(&tcp_header_send);
+
             printf("Sending packet 1 (three way handshake complete)\n");
+                        printTCPHeaderStruct(&tcp_header_send);
             // printf("Hex val for ofc:%x\n", tcp_header_send.offset_reserved_ctrl);
             three_way_hs_ack = 1;
+            ack_skip = 1;
 
             // Do not expect to receive more data after this, continue to next iteration
-            continue;
+            // continue;
         }
         else if (!file_requested)
         {
@@ -180,13 +184,20 @@ int main(int argc, char **argv) {
         int tcpObjectLength = HEADERSIZE + strlen(buf);
         tcpObject = constructTCPObject(headerBuf, buf);
 
-
         /* send the message to the server */
         serverlen = sizeof(serveraddr);
         n = sendto(sockfd, tcpObject, tcpObjectLength, 0, &serveraddr, serverlen);
         if (n < 0) 
           error("ERROR in sendto");
-        
+
+
+        // After threeway handshake is complete, ask user for file to send
+        if (ack_skip == 1)
+        {
+            ack_skip = 0;
+            continue;
+        }
+
         /* print the server's reply */
         n = recvfrom(sockfd, buf, BUFSIZE, 0, &serveraddr, &serverlen);
         if (n < 0) 

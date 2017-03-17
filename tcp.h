@@ -67,7 +67,7 @@ struct WindowPacket
   time_t transmissionTime;
   int valid;
   int acked;
-  int expectedSeqNum;
+  int seqNum;
 };
 
 // replace index at target with value
@@ -84,7 +84,7 @@ void replace(struct WindowPacket* window, int targetIndex, int valueIndex)
 	window[targetIndex].transmissionTime = window[valueIndex].transmissionTime;
 	window[targetIndex].valid = isValueIndexValid;
 	window[targetIndex].acked = window[valueIndex].acked;
-	window[targetIndex].expectedSeqNum = window[valueIndex].expectedSeqNum;
+	window[targetIndex].seqNum = window[valueIndex].seqNum;
 
 	window[valueIndex].acked = 0;
 
@@ -103,7 +103,7 @@ int windowIndexWithSeqNum(struct WindowPacket* window, int windowSize, int seq_n
 {
 	for (int i = 0; i < windowSize; i++)
 	{
-		if (window[i].expectedSeqNum == seq_num)
+		if (window[i].seqNum == seq_num)
 		{
 			return i;
 		}

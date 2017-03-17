@@ -98,6 +98,8 @@ int main(int argc, char **argv) {
   pthread_t threadId;
   int numPacketsToSend;
 
+  int global_seq_num = 1;
+
   // Allocate proper memory
   // window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
 
@@ -202,8 +204,13 @@ int main(int argc, char **argv) {
 
     printf("Receiving packet %d\n", header_rec.seq_num);
 // printf("Hex val for ofc:%x\n", header_rec.offset_reserved_ctrl);
+
+   printTCPHeaderStruct(&header_rec);
+
     if (/*!syn &&*/ is_syn_bit_set(&header_rec))
     {
+      printf("Inside syn_bit_set..\n");
+
       headers[0].src_port = portno;
       headers[0].dst_port = portno;
       headers[0].seq_num  = seq_num;
@@ -225,23 +232,25 @@ int main(int argc, char **argv) {
       responseBufSizes[0] = strlen(responseBuf[0]);
     }
     // If client sends ack (after syn)
-    else if (is_ack_bit_set(&header_rec))
+    else if (is_ack_bit_set(&header_rec) && header_rec.seq_num == 1 && header_rec.ack_num == 1)
     {
       printf("IS ACK BIT SET\n");
       // Set window element as acked
-      int windowIndex = windowIndexWithSeqNum(window, WINDOWSIZE, header_rec.seq_num);
+      // int windowIndex = windowIndexWithSeqNum(window, WINDOWSIZE / PACKETSIZE, header_rec.seq_num);
 
-      if (windowIndex < 0 )
-      {
-        // Most likely if already acked package
-        printf("Could not find window with sequence number provided. Ignoring and moving on.\n");
-      }
-      else 
-      {
-        printf("Setting window element %d as ACKED\n", windowIndex);
-        window[windowIndex].acked = 1;
-        window[windowIndex].valid = 0;
-      }
+      // if (windowIndex < 0 )
+      // {
+      //   // Most likely if already acked package
+      //   printf("Could not find window with sequence number provided. Ignoring and moving on.\n");
+      // }
+      // else 
+      // {
+      //   printf("Setting window element %d as ACKED\n", windowIndex);
+      //   window[windowIndex].acked = 1;
+      //   // window[windowIndex].valid = 0;
+      // }
+      window[0].ack = 1;
+      shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
 
 
       // Just skip to next iteration, do not need to send anything
@@ -250,6 +259,41 @@ int main(int argc, char **argv) {
     }
     else 
     {
+
+      // PROCESS ACKs from client for file requests
+      if (is_ack_bit_set(&header_rec)) 
+      {
+          // Find packet index in window
+          int target_seq_num = header_rec.ack_num - header_rec.data_size;
+          int index = windowIndexWithSeqNum(window, WINDOWSIZE/PACKETSIZE, target_seq_num);
+          if (index < 0 )
+          {
+            printf("Error getting window index for seq num %d\n", header_rec.seq_num);
+          }
+
+          window[index].acked = 1;
+
+          // If first packet is acked already, move to right by 1
+          while (window[0].acked)
+          {
+              shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
+
+
+
+
+          }
+
+
+
+         
+      }
+
+
+
+
+
+
+      printf("Inside else..\n");
       if (!file)
       {
         // Attempt to open requested file in buf
@@ -266,29 +310,28 @@ int main(int argc, char **argv) {
           // Move window sizes as necessary (i.e. if packet gets acked move window 
           // to right by 1)
           // If initial setup, available slots should be max: WINDOWSIZE / PACKETSIZE. 
-          int availableSlots;
-          for (availableSlots = 0; availableSlots < WINDOWSIZE / PACKETSIZE; availableSlots++)
-          {
-            // If first packet is acked already, move to right by 1
-            if (window[0].acked)
-            {
-              printf("SHIFTED\n");
-              shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
-            }
-            else {
-              break;
-            }
-          }
+          // int availableSlots;
+          // for (availableSlots = 0; availableSlots < WINDOWSIZE / PACKETSIZE; availableSlots++)
+          // {
+          //   // If first packet is acked already, move to right by 1
+          //   if (window[0].acked)
+          //   {
+          //     printf("SHIFTED\n");
+          //     shiftWindowRightN(window, WINDOWSIZE / PACKETSIZE, 1);
+          //   }
+          //   else {
+          //     break;
+          //   }
+          // }
 
-
-
-          numPacketsToSend = availableSlots;
+          numPacketsToSend = 5;
 
           for (int i = 0; i < numPacketsToSend; i++)
           {
               // Read payload bytes into buffer
               memset(responseBuf[i], 0, PAYLOADSIZE);
               responseBufSizes[i] = fread(responseBuf[i], 1, PAYLOADSIZE, file);
+              
 
               // File has finished sending.. do something other than exit
               if (responseBufSizes[i] == 0)
@@ -365,7 +408,7 @@ int main(int argc, char **argv) {
       window[i].tcpObjectLength = tcpObjectLength;
       window[i].valid = 1;
       window[i].acked = 0;
-      window[i].expectedSeqNum = headers[i].ack_num;
+      window[i].seqNum = headers[i].seq_num;
       window[i].transmissionTime = time(NULL);
 
       n = sendto(sockfd, tcpObject, tcpObjectLength, 0, 
