@@ -1,0 +1,189 @@
+/* 
+ * server.c - A simple UDP echo server 
+ * usage: udpserver <port>
+ */
+#include "tcp.h"
+
+struct WindowPacket window[5];
+int done = 0;
+int sockfd; /* socket */
+int clientlen; /* byte size of client's address */
+struct sockaddr_in clientaddr; /* client addr */
+
+/*
+ * error - wrapper for perror
+ */
+void error(char *msg) {
+  perror(msg);
+  exit(1);
+}
+
+// Helpful when retrieving commands from client
+// with newlines and when we want to remove them
+void replaceNewlineWithTerminator(char *buf) {
+  if(buf[strlen(buf) - 1] == '\n')
+  {
+    buf[strlen(buf) - 1] = '\0';
+  }
+}
+
+void printBufHex(char *buf) {
+  int i;
+  int x = strlen(buf);
+  for (i = 0; i < x; i++)
+  {
+    if (i > 0) printf(":");
+      printf("%02X", buf[i]);
+  }
+  printf("\n");
+}
+
+
+void retransmit(int index)
+{
+  printf("Retransmit packet in window...\n");
+  int n = sendto(sockfd, window[index].tcpObject, window[index].tcpObjectLength, 0, 
+            (struct sockaddr *) &clientaddr, clientlen);
+   if (n < 0) 
+     error("ERROR in sendto REXMT");
+}
+
+// Function to help us check the array of timers for each packet
+void *threadFunction(void * args)
+{
+  // Continuously check if a packet needs to be retransmitted
+  struct timespec currentTime;
+  
+  while (!done)
+  {
+    for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
+    {
+      clock_gettime(CLOCK_MONOTONIC, &currentTime);
+
+      //printf("Current time: %ld\n", time(NULL));
+      sleep(0.1);
+      if (!window[i].valid || window[i].tcpObject == NULL)
+      {
+        // If no packet, just skip and go to next iteration
+        continue;
+      }
+
+      // Retransmit if > 500MS
+      // double diff = difftime(window[i].transmissionTime,currentTime);
+      //double diff_ns = BILLION * (currentTime.tv_sec - window[i].transmissionTime.tv_sec) + currentTime.tv_nsec + window[i].transmissionTime.tv_nsec;
+      double diff = (currentTime.tv_sec - window[i].transmissionTime.tv_sec);
+
+
+
+      //printf("Dif is %f\n", diff);
+      // printf("!(window[i].acked) is: %d\n", !(window[i].acked));
+      if (!(window[i].acked) && ( diff > 0.5))
+      {          
+          retransmit(i);
+      }
+    }
+
+  }
+
+  return NULL;
+}
+
+int main(int argc, char **argv) {
+  int portno; /* port to listen on */
+  struct sockaddr_in serveraddr; /* server's addr */
+  struct hostent *hostp; /* client host info */
+  char buf[BUFSIZE]; /* message buf */
+  char *hostaddrp; /* dotted decimal host addr string */
+  int optval; /* flag value for setsockopt */
+  int n; /* message byte size */
+  FILE * file; /* file that is requested from client */
+  struct TCPHeader headers[WINDOWSIZE / PAYLOADSIZE]; /* struct that holds tcp header info */
+  struct TCPHeader header_rec;
+  char headerBuf[HEADERSIZE]; /* tcp header buffer */
+  char *serializationPtr; /* location after serialization of struct */
+  char *tcpObject;
+  char *dataBuf;
+  // char fileBuffer[PAYLOADSIZE];
+  char responseBuf[WINDOWSIZE / PAYLOADSIZE][PAYLOADSIZE];
+  int responseBufSizes[WINDOWSIZE / PAYLOADSIZE];
+  int syn = 0;
+  int seq_num = 0;
+  int ack_num = 0;
+  pthread_t threadId;
+  int numPacketsToSend;
+
+  // int global_seq_num = 1;
+  int isProcessingACKs = 0;
+  int send_packets_from_ack = 1;
+  int do_not_send_packet = 0;
+
+  // Allocate proper memory
+  // window = (struct WindowPacket *) malloc(WINDOWSIZE / PACKETSIZE); // 5 elements
+
+  // if (window == NULL)
+  // {
+  //   error("Could not allocate memory for window ptr\n");
+  // }
+
+  // Set all window values to invalid
+  for (int i = 0; i < WINDOWSIZE / PACKETSIZE; i++)
+  {
+    window[i].valid = 0;
+    window[i].acked = 0;
+  }
+
+  memset(headerBuf, 0, HEADERSIZE);
+
+  /* 
+   * check command line arguments 
+   */
+  if (argc != 2) {
+    fprintf(stderr, "usage: %s <port>\n", argv[0]);
+    exit(1);
+  }
+  portno = atoi(argv[1]);
+
+  /* 
+   * socket: create the parent socket 
+   */
+  sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sockfd < 0) 
+    error("ERROR opening socket");
+
+  /* setsockopt: Handy debugging trick that lets 
+   * us rerun the server immediately after we kill it; 
+   * otherwise we have to wait about 20 secs. 
+   * Eliminates "ERROR on binding: Address already in use" error. 
+   */
+  optval = 1;
+  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, 
+	     (const void *)&optval , sizeof(int));
+
+  /*
+   * build the server's Internet address
+   */
+  bzero((char *) &serveraddr, sizeof(serveraddr));
+  serveraddr.sin_family = AF_INET;
+  serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serveraddr.sin_port = htons((unsigned short)portno);
+
+  /* 
+   * bind: associate the parent socket with a port 
+   */
+  if (bind(sockfd, (struct sockaddr *) &serveraddr, 
+	   sizeof(serveraddr)) < 0) 
+    error("ERROR on binding");
+
+  /* 
+   * main loop: wait for a datagram, then echo it
+   */
+  clientlen = sizeof(clientaddr);
+
+  // Create thread to help us detect necessary retransmissions based on timers
+  pthread_create(&threadId, NULL, &threadFunction, NULL);
+
+  while (1) {
+    /*
+     * recvfrom: receive a UDP datagram from a client
+     */
+    bzero(buf,

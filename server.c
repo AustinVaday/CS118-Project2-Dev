@@ -42,10 +42,10 @@ void printBufHex(char *buf) {
 void retransmit(int index)
 {
   printf("Retransmit packet in window...\n");
-  // int n = sendto(sockfd, window[index].tcpObject, window[index].tcpObjectLength, 0, 
-  //          (struct sockaddr *) &clientaddr, clientlen);
-  // if (n < 0) 
-  //   error("ERROR in sendto REXMT");
+  int n = sendto(sockfd, window[index].tcpObject, window[index].tcpObjectLength, 0, 
+            (struct sockaddr *) &clientaddr, clientlen);
+   if (n < 0) 
+     error("ERROR in sendto REXMT");
 }
 
 // Function to help us check the array of timers for each packet
@@ -60,8 +60,8 @@ void *threadFunction(void * args)
     {
       clock_gettime(CLOCK_MONOTONIC, &currentTime);
 
-      printf("Current time: %ld\n", time(NULL));
-      sleep(2);
+      //printf("Current time: %ld\n", time(NULL));
+      sleep(0.1);
       if (!window[i].valid || window[i].tcpObject == NULL)
       {
         // If no packet, just skip and go to next iteration
@@ -70,12 +70,14 @@ void *threadFunction(void * args)
 
       // Retransmit if > 500MS
       // double diff = difftime(window[i].transmissionTime,currentTime);
-      double diff_ns = BILLION * (currentTime.tv_sec - window[i].transmissionTime.tv_sec) + currentTime.tv_nsec + window[i].transmissionTime.tv_nsec;
+      //double diff_ns = BILLION * (currentTime.tv_sec - window[i].transmissionTime.tv_sec) + currentTime.tv_nsec + window[i].transmissionTime.tv_nsec;
+      double diff = (currentTime.tv_sec - window[i].transmissionTime.tv_sec);
 
 
-      printf("Dif is %f\n", diff_ns);
+
+      //printf("Dif is %f\n", diff);
       // printf("!(window[i].acked) is: %d\n", !(window[i].acked));
-      if (!(window[i].acked) && ( diff_ns > (0.5 * BILLION)))
+      if (!(window[i].acked) && ( diff > 0.5))
       {          
           retransmit(i);
       }
